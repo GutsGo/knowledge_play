@@ -1585,23 +1585,6 @@ export default function V8GarbageCollectionPage() {
             </div>
           </div>
         </section>
-
-        {/* ═══ 底部导航 ═══ */}
-        <div className="flex justify-center pt-8">
-          <Link
-            href="/"
-            className="back-btn flex items-center gap-2 px-6 py-3 font-plus font-bold"
-            style={{
-              backgroundColor: "var(--card)",
-              border: "2px solid var(--foreground)",
-              borderRadius: "var(--radius-full)",
-              boxShadow: "4px 4px 0px 0px var(--foreground)",
-            }}
-          >
-            <ArrowLeft size={18} strokeWidth={2.5} />
-            返回知识库
-          </Link>
-        </div>
       </main>
     </div>
   );
