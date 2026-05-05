@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+/* PrismJS Code Highlighting Theme (Dracula) */
+@import "prism-themes/themes/prism-dracula.css";
 
 @tailwind base;
 @tailwind components;
@@ -51,10 +53,13 @@ a {
   text-decoration: none;
 }
 
+:not(pre) > code[class*="language-"], pre[class*="language-"] {
+  background: initial !important;
+}
+
 /* Utilities */
 .container {
   max-width: 72rem; /* max-w-6xl */
-  margin: 0 auto;
   padding: 0 1.5rem;
 }
 
@@ -82,6 +87,9 @@ a {
 .bg-dot-grid {
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* Animations */
