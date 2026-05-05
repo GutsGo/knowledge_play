@@ -1,0 +1,2462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V8 垃圾回收机制详解</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ========== CSS Variables ========== */
+        :root {
+            --bg: #FFFDF5;
+            --fg: #1E293B;
+            --muted: #F1F5F9;
+            --muted-fg: #64748B;
+            --accent: #8B5CF6;
+            --accent-fg: #FFFFFF;
+            --secondary: #F472B6;
+            --tertiary: #FBBF24;
+            --quaternary: #34D399;
+            --border: #E2E8F0;
+            --input: #FFFFFF;
+            --card: #FFFFFF;
+            --ring: #8B5CF6;
+
+            --radius-sm: 8px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+            --radius-full: 9999px;
+
+            --shadow-dark: 4px 4px 0px 0px #1E293B;
+            --shadow-dark-lg: 8px 8px 0px 0px #1E293B;
+            --shadow-dark-hover: 6px 6px 0px 0px #1E293B;
+            --shadow-dark-active: 2px 2px 0px 0px #1E293B;
+            --shadow-pink: 8px 8px 0px 0px #F472B6;
+            --shadow-violet: 8px 8px 0px 0px #8B5CF6;
+            --shadow-yellow: 8px 8px 0px 0px #FBBF24;
+        }
+
+        /* ========== Reset & Base ========== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+            font-weight: 400;
+            color: var(--fg);
+            background: var(--bg);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        /* ========== Dot Grid Background ========== */
+        .dot-grid-bg {
+            background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* ========== Container ========== */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ========== Bounce Animation ========== */
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.3); }
+            70% { transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(-10px) rotate(2deg); }
+            66% { transform: translateY(5px) rotate(-1deg); }
+        }
+
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(3deg); }
+            75% { transform: rotate(-3deg); }
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 0.4; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0.4; }
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes dash {
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(30px) rotate(360deg); opacity: 0; }
+        }
+
+        .animate-pop {
+            animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        .animate-slide {
+            animation: slideDown 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        /* ========== Navigation ========== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(255, 253, 245, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 2px solid var(--border);
+            padding: 16px 0;
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--fg);
+            text-decoration: none;
+        }
+
+        .nav-logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent);
+            border-radius: var(--radius-md);
+            border: 2px solid var(--fg);
+            box-shadow: 3px 3px 0px var(--fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            list-style: none;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: var(--radius-full);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--fg);
+            text-decoration: none;
+            border: 2px solid transparent;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .nav-links a:hover {
+            background: var(--tertiary);
+            border-color: var(--fg);
+            box-shadow: 3px 3px 0px var(--fg);
+            transform: translate(-1px, -1px);
+        }
+
+        /* ========== Hero ========== */
+        .hero {
+            padding: 160px 0 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: var(--tertiary);
+            border: 2px solid var(--fg);
+            border-radius: var(--radius-full);
+            font-weight: 700;
+            font-size: 0.85rem;
+            box-shadow: 3px 3px 0px var(--fg);
+            margin-bottom: 24px;
+            animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            margin-bottom: 20px;
+            animation: slideDown 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+        }
+
+        .hero h1 .highlight-violet {
+            color: var(--accent);
+            position: relative;
+        }
+
+        .hero h1 .highlight-pink {
+            color: var(--secondary);
+        }
+
+        .hero h1 .squiggle {
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            right: 0;
+            height: 12px;
+        }
+
+        .hero-desc {
+            font-size: 1.15rem;
+            color: var(--muted-fg);
+            max-width: 520px;
+            margin-bottom: 36px;
+            animation: slideDown 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            animation: slideDown 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+        }
+
+        .hero-visual {
+            position: relative;
+            animation: popIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+        }
+
+        .hero-memory-card {
+            background: var(--card);
+            border: 3px solid var(--fg);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            box-shadow: 12px 12px 0px var(--fg);
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-memory-title {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .memory-bar-group {
+            margin-bottom: 16px;
+        }
+
+        .memory-bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .memory-bar {
+            height: 28px;
+            border-radius: var(--radius-sm);
+            border: 2px solid var(--fg);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .memory-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .hero-deco-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 3px solid var(--fg);
+            z-index: 1;
+        }
+
+        .hero-deco-1 {
+            width: 300px;
+            height: 300px;
+            background: var(--tertiary);
+            opacity: 0.3;
+            top: -60px;
+            left: -100px;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        .hero-deco-2 {
+            width: 180px;
+            height: 180px;
+            background: var(--secondary);
+            opacity: 0.2;
+            bottom: -40px;
+            right: -60px;
+            animation: float 6s ease-in-out infinite 2s;
+        }
+
+        .hero-deco-3 {
+            width: 80px;
+            height: 80px;
+            background: var(--quaternary);
+            top: 20px;
+            right: 40px;
+            animation: float 5s ease-in-out infinite 1s;
+            border: 3px solid var(--fg);
+        }
+
+        /* ========== Buttons ========== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 32px;
+            border-radius: var(--radius-full);
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            border: 2px solid var(--fg);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: 4px 4px 0px var(--fg);
+        }
+
+        .btn-primary:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0px var(--fg);
+        }
+
+        .btn-primary:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px var(--fg);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--fg);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            background: var(--tertiary);
+            box-shadow: 4px 4px 0px var(--fg);
+            transform: translate(-2px, -2px);
+        }
+
+        .btn-small {
+            padding: 8px 20px;
+            font-size: 0.85rem;
+        }
+
+        /* ========== Section Common ========== */
+        .section {
+            padding: 100px 0;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 18px;
+            border-radius: var(--radius-full);
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+            border: 2px solid var(--fg);
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 16px;
+        }
+
+        .section-desc {
+            font-size: 1.1rem;
+            color: var(--muted-fg);
+            max-width: 680px;
+            margin: 0 auto;
+        }
+
+        /* ========== Cards ========== */
+        .card {
+            background: var(--card);
+            border: 2px solid var(--fg);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .card:hover {
+            transform: rotate(-1deg) scale(1.02);
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-md);
+            border: 2px solid var(--fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            position: absolute;
+            top: -28px;
+            left: 28px;
+        }
+
+        .card-title {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            margin-top: 8px;
+        }
+
+        .card p {
+            color: var(--muted-fg);
+            font-size: 0.95rem;
+        }
+
+        /* ========== Memory Generation Cards ========== */
+        .gen-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .gen-card {
+            background: var(--card);
+            border: 3px solid var(--fg);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: 8px 8px 0px var(--fg);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .gen-card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 10px 10px 0px var(--fg);
+        }
+
+        .gen-card-header {
+            padding: 24px 28px;
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gen-card-header::after {
+            content: '';
+            position: absolute;
+            right: -20px;
+            top: -20px;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+        }
+
+        .gen-card.young .gen-card-header {
+            background: var(--accent);
+        }
+
+        .gen-card.old .gen-card-header {
+            background: var(--secondary);
+        }
+
+        .gen-card-body {
+            padding: 28px;
+        }
+
+        .gen-stat {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 2px dashed var(--border);
+        }
+
+        .gen-stat:last-child {
+            border-bottom: none;
+        }
+
+        .gen-stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .gen-stat-text {
+            flex: 1;
+        }
+
+        .gen-stat-label {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .gen-stat-value {
+            font-size: 0.8rem;
+            color: var(--muted-fg);
+        }
+
+        /* ========== Algorithm Steps ========== */
+        .algo-section {
+            background: var(--muted);
+            border-radius: var(--radius-lg);
+            border: 2px solid var(--border);
+            padding: 40px;
+            margin-bottom: 32px;
+        }
+
+        .algo-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .algo-num {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: white;
+            border: 2px solid var(--fg);
+            box-shadow: 3px 3px 0px var(--fg);
+            flex-shrink: 0;
+        }
+
+        .algo-title {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1.4rem;
+        }
+
+        .algo-steps {
+            display: grid;
+            gap: 16px;
+        }
+
+        .algo-step {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            padding: 20px;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            transition: all 0.3s ease;
+        }
+
+        .algo-step:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent);
+        }
+
+        .step-marker {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            border: 2px solid var(--fg);
+        }
+
+        .step-content h4 {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            font-size: 0.9rem;
+            color: var(--muted-fg);
+        }
+
+        /* ========== Memory Diagram ========== */
+        .memory-diagram {
+            background: white;
+            border: 3px solid var(--fg);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            box-shadow: 8px 8px 0px var(--fg);
+            margin: 40px 0;
+            overflow-x: auto;
+        }
+
+        .memory-diagram-title {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .heap-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+
+        .heap-gen {
+            border: 2px solid var(--fg);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .heap-gen-label {
+            padding: 10px 16px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-align: center;
+            color: white;
+            border-bottom: 2px solid var(--fg);
+        }
+
+        .heap-gen-body {
+            padding: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            min-height: 180px;
+            background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+            background-size: 16px 16px;
+        }
+
+        .heap-slot {
+            height: 36px;
+            border-radius: 6px;
+            border: 2px solid var(--fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+
+        .heap-slot.alive {
+            background: var(--quaternary);
+            color: var(--fg);
+        }
+
+        .heap-slot.dead {
+            background: var(--muted);
+            color: var(--muted-fg);
+            border-style: dashed;
+            text-decoration: line-through;
+        }
+
+        .heap-slot.empty {
+            background: transparent;
+            border: 2px dashed var(--border);
+        }
+
+        .heap-gen-label.young {
+            background: var(--accent);
+        }
+
+        .heap-gen-label.old {
+            background: var(--secondary);
+        }
+
+        .heap-gen-body.old-body {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        /* ========== Code Block ========== */
+        .code-block {
+            background: #1E293B;
+            border: 2px solid var(--fg);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .code-header {
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dots .code-dot:nth-child(1) { background: #FF5F56; }
+        .code-dots .code-dot:nth-child(2) { background: #FFBD2E; }
+        .code-dots .code-dot:nth-child(3) { background: #27C93F; }
+
+        .code-filename {
+            margin-left: 8px;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .code-body {
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .code-body pre {
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            color: #E2E8F0;
+        }
+
+        .code-keyword { color: #C084FC; }
+        .code-string { color: #34D399; }
+        .code-comment { color: #64748B; font-style: italic; }
+        .code-func { color: #F472B6; }
+        .code-const { color: #FBBF24; }
+        .code-obj { color: #60A5FA; }
+
+        /* ========== Feature Cards Grid ========== */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+
+        .feature-card {
+            background: white;
+            border: 2px solid var(--fg);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            padding-top: 44px;
+            position: relative;
+            box-shadow: 6px 6px 0px var(--border);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .feature-card:hover {
+            transform: rotate(-1deg) scale(1.02);
+            box-shadow: 8px 8px 0px var(--fg);
+        }
+
+        .feature-card:nth-child(1) .feature-card-icon { background: var(--accent); }
+        .feature-card:nth-child(2) .feature-card-icon { background: var(--secondary); }
+        .feature-card:nth-child(3) .feature-card-icon { background: var(--tertiary); }
+        .feature-card:nth-child(4) .feature-card-icon { background: var(--quaternary); }
+        .feature-card:nth-child(5) .feature-card-icon { background: var(--secondary); }
+        .feature-card:nth-child(6) .feature-card-icon { background: var(--accent); }
+
+        .feature-card-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius-md);
+            border: 2px solid var(--fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            position: absolute;
+            top: -26px;
+            left: 28px;
+            box-shadow: 3px 3px 0px var(--fg);
+        }
+
+        .feature-card h3 {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            color: var(--muted-fg);
+            font-size: 0.9rem;
+        }
+
+        /* ========== Timeline / Process Flow ========== */
+        .process-flow {
+            position: relative;
+            padding-left: 40px;
+        }
+
+        .process-flow::before {
+            content: '';
+            position: absolute;
+            left: 18px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, var(--accent), var(--secondary), var(--tertiary), var(--quaternary));
+            border-radius: 2px;
+        }
+
+        .process-item {
+            position: relative;
+            margin-bottom: 32px;
+            padding: 24px;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            transition: all 0.3s ease;
+        }
+
+        .process-item:hover {
+            border-color: var(--accent);
+            box-shadow: 4px 4px 0px var(--accent);
+        }
+
+        .process-item::before {
+            content: '';
+            position: absolute;
+            left: -30px;
+            top: 28px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 3px solid var(--fg);
+            background: white;
+        }
+
+        .process-item:nth-child(1)::before { background: var(--accent); }
+        .process-item:nth-child(2)::before { background: var(--secondary); }
+        .process-item:nth-child(3)::before { background: var(--tertiary); }
+        .process-item:nth-child(4)::before { background: var(--quaternary); }
+
+        .process-item h4 {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .process-item p {
+            color: var(--muted-fg);
+            font-size: 0.9rem;
+        }
+
+        /* ========== Scavenger Visual ========== */
+        .scavenger-visual {
+            display: grid;
+            grid-template-columns: 1fr 80px 1fr;
+            gap: 16px;
+            align-items: center;
+            margin: 32px 0;
+        }
+
+        .scavenger-space {
+            border: 3px solid var(--fg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            min-height: 200px;
+            position: relative;
+        }
+
+        .scavenger-space.from-space {
+            background: rgba(244, 114, 182, 0.08);
+            border-color: var(--secondary);
+        }
+
+        .scavenger-space.to-space {
+            background: rgba(139, 92, 246, 0.08);
+            border-color: var(--accent);
+        }
+
+        .scavenger-space-label {
+            position: absolute;
+            top: -12px;
+            left: 16px;
+            padding: 2px 12px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-radius: var(--radius-full);
+            border: 2px solid var(--fg);
+            background: white;
+        }
+
+        .scavenger-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: var(--accent);
+            animation: wiggle 2s ease-in-out infinite;
+        }
+
+        .scavenger-obj {
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            border: 2px solid var(--fg);
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        /* ========== Comparison Table ========== */
+        .comparison-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 2px solid var(--fg);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: 6px 6px 0px var(--fg);
+            margin: 32px 0;
+        }
+
+        .comparison-table th {
+            padding: 16px 20px;
+            text-align: left;
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            border-bottom: 2px solid var(--fg);
+        }
+
+        .comparison-table th:first-child {
+            background: var(--accent);
+            color: white;
+        }
+
+        .comparison-table th:nth-child(2) {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .comparison-table th:nth-child(3) {
+            background: var(--tertiary);
+            color: var(--fg);
+        }
+
+        .comparison-table td {
+            padding: 14px 20px;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border);
+            background: white;
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-table td:first-child {
+            font-weight: 600;
+            background: var(--muted);
+        }
+
+        /* ========== Leak Warning Cards ========== */
+        .leak-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .leak-card {
+            background: white;
+            border: 2px solid var(--fg);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 4px 4px 0px var(--border);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .leak-card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0px var(--secondary);
+        }
+
+        .leak-card::before {
+            content: '⚠️';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            font-size: 1.5rem;
+        }
+
+        .leak-card h4 {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: var(--secondary);
+        }
+
+        .leak-card p {
+            font-size: 0.85rem;
+            color: var(--muted-fg);
+        }
+
+        /* ========== Tag / Badge ========== */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 2px solid var(--fg);
+        }
+
+        .tag-violet { background: var(--accent); color: white; }
+        .tag-pink { background: var(--secondary); color: white; }
+        .tag-yellow { background: var(--tertiary); color: var(--fg); }
+        .tag-green { background: var(--quaternary); color: var(--fg); }
+
+        /* ========== Info Box ========== */
+        .info-box {
+            padding: 20px 24px;
+            border-radius: var(--radius-md);
+            border-left: 5px solid;
+            margin: 20px 0;
+            font-size: 0.9rem;
+        }
+
+        .info-box.tip {
+            background: rgba(139, 92, 246, 0.08);
+            border-color: var(--accent);
+        }
+
+        .info-box.warning {
+            background: rgba(251, 191, 36, 0.12);
+            border-color: var(--tertiary);
+        }
+
+        .info-box.danger {
+            background: rgba(244, 114, 182, 0.08);
+            border-color: var(--secondary);
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        /* ========== Tool Cards ========== */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .tool-card {
+            background: white;
+            border: 2px solid var(--fg);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            text-align: center;
+            box-shadow: 4px 4px 0px var(--border);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .tool-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 6px 6px 0px var(--fg);
+        }
+
+        .tool-card-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin: 0 auto 16px;
+            border: 2px solid var(--fg);
+            box-shadow: 3px 3px 0px var(--fg);
+        }
+
+        .tool-card h4 {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .tool-card p {
+            font-size: 0.8rem;
+            color: var(--muted-fg);
+        }
+
+        /* ========== Squiggle Divider ========== */
+        .squiggle-divider {
+            width: 100%;
+            height: 24px;
+            margin: 16px 0;
+        }
+
+        /* ========== Footer ========== */
+        .footer {
+            padding: 60px 0 40px;
+            border-top: 2px solid var(--border);
+            text-align: center;
+        }
+
+        .footer-text {
+            color: var(--muted-fg);
+            font-size: 0.85rem;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+
+        /* ========== Confetti Shapes ========== */
+        .confetti-shape {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0.15;
+        }
+
+        .confetti-triangle {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 34px solid var(--accent);
+        }
+
+        .confetti-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid var(--secondary);
+        }
+
+        .confetti-square {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--tertiary);
+            transform: rotate(45deg);
+        }
+
+        /* ========== Responsive ========== */
+        @media (max-width: 1024px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-visual {
+                max-width: 500px;
+                margin: 0 auto;
+            }
+
+            .gen-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .feature-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .scavenger-visual {
+                grid-template-columns: 1fr;
+            }
+
+            .scavenger-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .section {
+                padding: 60px 0;
+            }
+
+            .hero {
+                padding: 120px 0 60px;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .leak-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tool-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .heap-container {
+                grid-template-columns: 1fr;
+            }
+
+            .comparison-table {
+                font-size: 0.8rem;
+            }
+
+            .comparison-table th, .comparison-table td {
+                padding: 10px 12px;
+            }
+
+            .algo-section {
+                padding: 24px;
+            }
+        }
+
+        /* ========== Reduced Motion ========== */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* ========== Scroll Bar ========== */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: var(--radius-full);
+            border: 2px solid var(--bg);
+        }
+
+        /* Highlighted inline code */
+        code {
+            background: var(--muted);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85em;
+            border: 1px solid var(--border);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="dot-grid-bg">
+
+    <!-- ========== Navigation ========== -->
+    <nav class="nav">
+        <div class="container nav-inner">
+            <a href="#" class="nav-logo">
+                <div class="nav-logo-icon">V8</div>
+                <span>GC 详解</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#overview">概述</a></li>
+                <li><a href="#generations">分代</a></li>
+                <li><a href="#scavenger">Scavenger</a></li>
+                <li><a href="#mark-compact">标记清除</a></li>
+                <li><a href="#optimizations">优化策略</a></li>
+                <li><a href="#leaks">内存泄漏</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- ========== Hero ========== -->
+    <section class="hero" id="overview">
+        <!-- Decorative shapes -->
+        <div class="confetti-shape confetti-triangle" style="top: 200px; left: 5%; animation: float 7s ease-in-out infinite;"></div>
+        <div class="confetti-shape confetti-circle" style="top: 300px; right: 8%; animation: float 5s ease-in-out infinite 1s;"></div>
+        <div class="confetti-shape confetti-square" style="top: 150px; right: 25%; animation: float 6s ease-in-out infinite 0.5s;"></div>
+
+        <div class="container">
+            <div class="hero-grid">
+                <div class="hero-content">
+                    <div class="hero-badge">
+                        🧹 V8 引擎核心机制
+                    </div>
+                    <h1>
+                        深入理解<br>
+                        <span class="highlight-violet">V8 垃圾回收</span>
+                        <svg class="squiggle" viewBox="0 0 200 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2 8C20 2 40 12 60 6C80 0 100 10 120 4C140 -2 160 8 180 2C190 -1 198 6 198 6" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round"/>
+                        </svg>
+                        机制
+                    </h1>
+                    <p class="hero-desc">
+                        V8 是 Google 开发的高性能 JavaScript 引擎，其垃圾回收（GC）系统经过多年的优化，
+                        采用了分代收集、并发标记、增量清除等先进技术，让 JavaScript 开发者无需手动管理内存。
+                    </p>
+                    <div class="hero-actions">
+                        <a href="#generations" class="btn btn-primary">
+                            开始探索
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                        </a>
+                        <a href="#leaks" class="btn btn-secondary">
+                            常见内存泄漏
+                        </a>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="hero-deco-circle hero-deco-1"></div>
+                    <div class="hero-deco-circle hero-deco-2"></div>
+                    <div class="hero-deco-circle hero-deco-3" style="border-radius: var(--radius-md); transform: rotate(45deg);"></div>
+
+                    <div class="hero-memory-card">
+                        <div class="hero-memory-title">
+                            📊 内存使用状态
+                            <span class="tag tag-green" style="font-size: 0.65rem;">LIVE</span>
+                        </div>
+                        <div class="memory-bar-group">
+                            <div class="memory-bar-label">
+                                <span>新生代 (Young Gen)</span>
+                                <span style="color: var(--accent);">1.2 / 4 MB</span>
+                            </div>
+                            <div class="memory-bar">
+                                <div class="memory-bar-fill" style="width: 30%; background: linear-gradient(90deg, var(--accent), #A78BFA);" id="youngBar"></div>
+                            </div>
+                        </div>
+                        <div class="memory-bar-group">
+                            <div class="memory-bar-label">
+                                <span>老生代 (Old Gen)</span>
+                                <span style="color: var(--secondary);">45 / 1500 MB</span>
+                            </div>
+                            <div class="memory-bar">
+                                <div class="memory-bar-fill" style="width: 3%; background: linear-gradient(90deg, var(--secondary), #F9A8D4);" id="oldBar"></div>
+                            </div>
+                        </div>
+                        <div class="memory-bar-group">
+                            <div class="memory-bar-label">
+                                <span>大对象空间 (LO Space)</span>
+                                <span style="color: var(--tertiary);">8 / 100 MB</span>
+                            </div>
+                            <div class="memory-bar">
+                                <div class="memory-bar-fill" style="width: 8%; background: linear-gradient(90deg, var(--tertiary), #FCD34D);" id="loBar"></div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+                            <span class="tag tag-violet">GC 暂停: 2.4ms</span>
+                            <span class="tag tag-yellow">对象数: 12,847</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Overview Section ========== -->
+    <section class="section" id="why-gc">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: rgba(139, 92, 246, 0.1);">
+                    <span>💡</span> 为什么需要 GC
+                </div>
+                <h2 class="section-title">自动内存管理的必要性</h2>
+                <p class="section-desc">
+                    JavaScript 是一门自动内存管理的语言。V8 的垃圾回收器自动识别并回收不再使用的对象，
+                    防止内存泄漏，让开发者专注于业务逻辑。
+                </p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card" style="animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;">
+                    <div class="feature-card-icon">🔒</div>
+                    <h3>防止内存泄漏</h3>
+                    <p>自动识别不再被引用的对象并释放内存，避免程序因内存耗尽而崩溃。</p>
+                </div>
+                <div class="feature-card" style="animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;">
+                    <div class="feature-card-icon">⚡</div>
+                    <h3>低延迟保证</h3>
+                    <p>通过并发标记和增量清除，将 GC 暂停时间控制在毫秒级，保证用户体验。</p>
+                </div>
+                <div class="feature-card" style="animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;">
+                    <div class="feature-card-icon">🧠</div>
+                    <h3>智能分代策略</h3>
+                    <p>基于「大多数对象生命周期极短」的经验法则，对新老对象采用不同的回收策略。</p>
+                </div>
+                <div class="feature-card" style="animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s both;">
+                    <div class="feature-card-icon">🔄</div>
+                    <h3>并发与并行</h3>
+                    <p>充分利用多核 CPU，将 GC 工作分散到多个线程，减少主线程阻塞。</p>
+                </div>
+                <div class="feature-card" style="animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s both;">
+                    <div class="feature-card-icon">📐</div>
+                    <h3>内存压缩整理</h3>
+                    <p>定期整理内存碎片，提高内存分配效率和缓存命中率。</p>
+                </div>
+                <div class="feature-card" style="animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.6s both;">
+                    <div class="feature-card-icon">🎯</div>
+                    <h3>Orinoco 优化</h3>
+                    <p>V8 的现代 GC 代号 Orinoco，包含多种先进优化技术持续迭代。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Generational GC ========== -->
+    <section class="section" id="generations" style="background: white;">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: rgba(244, 114, 182, 0.15);">
+                    <span>📦</span> 内存分代
+                </div>
+                <h2 class="section-title">分代假说与内存布局</h2>
+                <p class="section-desc">
+                    V8 将堆内存分为不同的空间，基于分代假说（Generational Hypothesis）：
+                    <strong>大多数对象的生命周期极短</strong>，而存活较久的对象往往继续存活。
+                </p>
+            </div>
+
+            <!-- Memory Diagram -->
+            <div class="memory-diagram">
+                <div class="memory-diagram-title">
+                    🗂️ V8 堆内存全景图
+                </div>
+                <div class="heap-container">
+                    <div>
+                        <div class="heap-gen" style="margin-bottom: 16px;">
+                            <div class="heap-gen-label young">🔹 新生代 (New Space) — ~1-8 MB</div>
+                            <div class="heap-gen-body" style="grid-template-columns: 1fr 1fr;">
+                                <div style="text-align: center; font-weight: 700; font-size: 0.7rem; color: var(--accent); margin-bottom: 4px;">From Space</div>
+                                <div style="text-align: center; font-weight: 700; font-size: 0.7rem; color: var(--accent); margin-bottom: 4px;">To Space</div>
+                                <div class="heap-slot alive">obj_a</div>
+                                <div class="heap-slot empty"></div>
+                                <div class="heap-slot dead">obj_b</div>
+                                <div class="heap-slot empty"></div>
+                                <div class="heap-slot alive">obj_c</div>
+                                <div class="heap-slot empty"></div>
+                                <div class="heap-slot dead">obj_d</div>
+                                <div class="heap-slot empty"></div>
+                                <div class="heap-slot alive">obj_e</div>
+                                <div class="heap-slot empty"></div>
+                                <div class="heap-slot dead">obj_f</div>
+                                <div class="heap-slot empty"></div>
+                            </div>
+                        </div>
+                        <div class="heap-gen">
+                            <div class="heap-gen-label" style="background: var(--quaternary);">🔹 Map Space</div>
+                            <div class="heap-gen-body" style="grid-template-columns: 1fr 1fr; min-height: 80px;">
+                                <div class="heap-slot" style="background: rgba(52, 211, 153, 0.15);">Hidden Class</div>
+                                <div class="heap-slot" style="background: rgba(52, 211, 153, 0.15);">Hidden Class</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="heap-gen">
+                            <div class="heap-gen-label old">🔹 老生代 (Old Space) — 动态增长</div>
+                            <div class="heap-gen-body old-body">
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">long_obj1</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">long_obj2</div>
+                                <div class="heap-slot dead" style="border-style: dashed;">frag</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">long_obj3</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">long_obj4</div>
+                                <div class="heap-slot dead" style="border-style: dashed;">frag</div>
+                                <div class="heap-slot dead" style="border-style: dashed;">frag</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">long_obj5</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">closure1</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">closure2</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">global</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">cache</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">proto</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">module</div>
+                                <div class="heap-slot dead" style="border-style: dashed;">frag</div>
+                                <div class="heap-slot alive" style="background: rgba(251, 191, 36, 0.3);">event</div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+                            <div class="heap-gen">
+                                <div class="heap-gen-label" style="background: #6366F1;">🔹 Code Space</div>
+                                <div class="heap-gen-body" style="grid-template-columns: 1fr; min-height: 60px;">
+                                    <div class="heap-slot" style="background: rgba(99, 102, 241, 0.15);">JIT Code</div>
+                                </div>
+                            </div>
+                            <div class="heap-gen">
+                                <div class="heap-gen-label" style="background: #F97316;">🔹 LO Space</div>
+                                <div class="heap-gen-body" style="grid-template-columns: 1fr; min-height: 60px;">
+                                    <div class="heap-slot" style="background: rgba(249, 115, 22, 0.15);">Large Obj</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generation Details -->
+            <div class="gen-grid">
+                <div class="gen-card young">
+                    <div class="gen-card-header">
+                        <span style="font-size: 1.8rem;">🌱</span>
+                        新生代 (New Space)
+                    </div>
+                    <div class="gen-card-body">
+                        <p style="margin-bottom: 16px; color: var(--muted-fg); font-size: 0.9rem;">
+                            新分配的对象首先分配在这里。空间很小（通常 1-8 MB），采用 <strong>Scavenge 算法</strong>（Cheney 算法）进行垃圾回收。
+                        </p>
+                        <div class="gen-stat">
+                            <div class="gen-stat-icon" style="background: rgba(139, 92, 246, 0.15);">📏</div>
+                            <div class="gen-stat-text">
+                                <div class="gen-stat-label">内存大小</div>
+                                <div class="gen-stat-value">~1-8 MB（可配置 --max-semi-space-size）</div>
+                            </div>
+                        </div>
+                        <div class="gen-stat">
+                            <div class="gen-stat-icon" style="background: rgba(139, 92, 246, 0.15);">⚡</div>
+                            <div class="gen-stat-text">
+                                <div class="gen-stat-label">GC 频率</div>
+                                <div class="gen-stat-value">非常频繁（毫秒级），因为空间小容易满</div>
+                            </div>
+                        </div>
+                        <div class="gen-stat">
+                            <div class="gen-stat-icon" style="background: rgba(139, 92, 246, 0.15);">🧹</div>
+                            <div class="gen-stat-text">
+                                <div class="gen-stat-label">回收算法</div>
+                                <div class="gen-stat-value">Scavenge（Cheney 算法）— 半区复制</div>
+                            </div>
+                        </div>
+                        <div class="gen-stat">
+                            <div class="gen-stat-icon" style="background: rgba(139, 92, 246, 0.15);">📊</div>
+                            <div class="gen-stat-text">
+                                <div class="gen-stat-label">晋升条件</div>
+                                <div class="gen-stat-value">经历 2 次 GC 仍存活 → 晋升老生代</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gen-card old">
+                    <div class="gen-card-header">
+                        <span style="font-size: 1.8rem;">🏛️</span>
+                        老生代 (Old Space)
+                    </div>
+                    <div class="gen-card-body">
+                        <p style="margin-bottom: 16px; color: var(--muted-fg); font-size: 0.9rem;">
+                            从新生代晋升来的长期存活对象。空间较大，采用 <strong>Mark-Sweep-Compact</strong>（标记-清除-整理）算法回收。
+                        </p>
+                        <div class="gen-stat">
+                            <div class="gen-stat-icon" style="background: rgba(244, 114, 182, 0.15);">📏</div>
+                            <div class="gen-stat-text">
+                                <div class="gen-stat-label">内存大小</div>
+                                <div class="gen-stat-value">可达 1.5 GB+（700MB on 32-bit）</div>
+                            </div>
+                        </div>
+                        <div class="gen-stat">
+                            <div class="gen-stat-icon" style="background: rgba(244, 114, 182, 0.15);">⚡</div>
+                            <div class="gen-stat-text">
+                                <div class="gen-stat-label">GC 频率</div>
+                                <div class="gen-stat-value">较低，但单次耗时更长</div>
+                            </div>
+                        </div>
+                        <div class="gen-stat">
+                            <div class="gen-stat-icon" style="background: rgba(244, 114, 182, 0.15);">🧹</div>
+                            <div class="gen-stat-text">
+                                <div class="gen-stat-label">回收算法</div>
+                                <div class="gen-stat-value">Mark-Sweep-Compact（标记-清除-整理）</div>
+                            </div>
+                        </div>
+                        <div class="gen-stat">
+                            <div class="gen-stat-icon" style="background: rgba(244, 114, 182, 0.15);">🔧</div>
+                            <div class="gen-stat-text">
+                                <div class="gen-stat-label">优化技术</div>
+                                <div class="gen-stat-value">并发标记、增量清除、并行整理</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box tip" style="margin-top: 32px;">
+                <strong>💡 其他内存空间说明</strong>
+                <strong>Code Space</strong>：存放 JIT 编译后的机器码（Code Objects），不参与 Scavenge，使用 Mark-Compact 回收。<br>
+                <strong>Map Space（Pointer Space）</strong>：存放对象的隐藏类（Hidden Classes / Maps），只包含指针，便于遍历。<br>
+                <strong>Large Object Space (LO Space)</strong>：存放超过半区大小的大型对象，不被 Scavenge 管理，直接分配在独立页上。<br>
+                <strong>New Large Object Space</strong>：新大对象首先分配于此。
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Scavenge Algorithm ========== -->
+    <section class="section" id="scavenger">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: rgba(139, 92, 246, 0.15);">
+                    <span>🔄</span> 新生代回收
+                </div>
+                <h2 class="section-title">Scavenge 算法（Cheney 算法）</h2>
+                <p class="section-desc">
+                    新生代采用 Cheney 的半区复制算法。将新生代空间分为两个等大的半区：From Space 和 To Space，
+                    交替使用。
+                </p>
+            </div>
+
+            <!-- Scavenger Visual -->
+            <div class="scavenger-visual">
+                <div class="scavenger-space from-space">
+                    <div class="scavenger-space-label" style="background: var(--secondary); color: white;">From Space（使用中）</div>
+                    <div class="scavenger-obj" style="background: var(--quaternary);">🟢 obj_a (存活)</div>
+                    <div class="scavenger-obj" style="background: var(--muted); border-style: dashed;">⚪ obj_b (死)</div>
+                    <div class="scavenger-obj" style="background: var(--quaternary);">🟢 obj_c (存活)</div>
+                    <div class="scavenger-obj" style="background: var(--muted); border-style: dashed;">⚪ obj_d (死)</div>
+                    <div class="scavenger-obj" style="background: var(--quaternary);">🟢 obj_e (存活)</div>
+                </div>
+
+                <div class="scavenger-arrow">➡️</div>
+
+                <div class="scavenger-space to-space">
+                    <div class="scavenger-space-label" style="background: var(--accent); color: white;">To Space（空闲）</div>
+                    <div class="scavenger-obj" style="background: var(--accent); color: white;">obj_a (复制)</div>
+                    <div class="scavenger-obj" style="background: var(--accent); color: white;">obj_c (复制)</div>
+                    <div class="scavenger-obj" style="background: var(--accent); color: white;">obj_e (复制)</div>
+                    <div style="margin-top: 24px; padding: 8px; text-align: center; font-size: 0.75rem; color: var(--muted-fg); border: 2px dashed var(--border); border-radius: 8px;">
+                        空闲区域
+                    </div>
+                </div>
+            </div>
+
+            <!-- Steps -->
+            <div class="algo-section" style="animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;">
+                <div class="algo-header">
+                    <div class="algo-num" style="background: var(--accent);">1</div>
+                    <div class="algo-title">Scavenge 算法执行步骤</div>
+                </div>
+                <div class="algo-steps">
+                    <div class="algo-step">
+                        <div class="step-marker" style="background: var(--accent); color: white;">1</div>
+                        <div class="step-content">
+                            <h4>检查触发条件</h4>
+                            <p>当 From Space 的内存使用量达到一定阈值时，触发 Scavenge。新对象优先分配在 From Space。</p>
+                        </div>
+                    </div>
+                    <div class="algo-step">
+                        <div class="step-marker" style="background: var(--secondary); color: white;">2</div>
+                        <div class="step-content">
+                            <h4>根对象遍历（Root Set Tracing）</h4>
+                            <p>从 GC Roots（栈、全局对象、寄存器中的引用等）出发，递归遍历所有可达对象，标记为「存活」。</p>
+                        </div>
+                    </div>
+                    <div class="algo-step">
+                        <div class="step-marker" style="background: var(--tertiary); color: var(--fg);">3</div>
+                        <div class="step-content">
+                            <h4>复制存活对象到 To Space</h4>
+                            <p>将 From Space 中所有存活的对象按顺序复制到 To Space，实现内存紧凑排列（无碎片）。对象地址更新。</p>
+                        </div>
+                    </div>
+                    <div class="algo-step">
+                        <div class="step-marker" style="background: var(--quaternary); color: var(--fg);">4</div>
+                        <div class="step-content">
+                            <h4>角色互换</h4>
+                            <p>From Space 和 To Space 角色互换。原来的 To Space 变为新的 From Space。原 From Space 整体清空，变为新的 To Space。</p>
+                        </div>
+                    </div>
+                    <div class="algo-step">
+                        <div class="step-marker" style="background: #6366F1; color: white;">5</div>
+                        <div class="step-content">
+                            <h4>晋升判断</h4>
+                            <p>如果一个对象已经经历过一次 Scavenge 且仍然存活，或者 To Space 的使用率超过 25%，则将该对象<strong>晋升（Promote）</strong>到老生代。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box warning">
+                <strong>⚠️ 为什么 25% 是晋升阈值？</strong>
+                当 To Space 使用率超过 25% 时，剩余空间不足以保证下一次分配的高效进行，同时也说明该对象可能长期存活。及时晋升到老生代可以避免反复在新生代中复制这些对象，节省 CPU 开销。
+            </div>
+
+            <div class="comparison-table" style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                    <thead>
+                        <tr>
+                            <th>特性</th>
+                            <th>Scavenge（新生代）</th>
+                            <th>Mark-Sweep-Compact（老生代）</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>空间利用</td>
+                            <td>始终浪费 50%（半区空闲）</td>
+                            <td>充分利用整个空间</td>
+                        </tr>
+                        <tr>
+                            <td>时间复杂度</td>
+                            <td>O(存活对象数) — 与存活量成正比</td>
+                            <td>O(堆大小) — 需遍历整个堆</td>
+                        </tr>
+                        <tr>
+                            <td>内存碎片</td>
+                            <td>无碎片（紧凑复制）</td>
+                            <td>Mark-Sweep 有碎片，Compact 解决碎片</td>
+                        </tr>
+                        <tr>
+                            <td>适用场景</td>
+                            <td>对象存活率低（&lt;5%）</td>
+                            <td>对象存活率高、空间大</td>
+                        </tr>
+                        <tr>
+                            <td>暂停时间</td>
+                            <td>极短（&lt;1ms 通常）</td>
+                            <td>较长（需要并发/增量优化）</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Mark-Sweep-Compact ========== -->
+    <section class="section" id="mark-compact" style="background: white;">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: rgba(244, 114, 182, 0.15);">
+                    <span>🏗️</span> 老生代回收
+                </div>
+                <h2 class="section-title">Mark-Sweep-Compact 算法</h2>
+                <p class="section-desc">
+                    老生代采用标记-清除-整理（Mark-Sweep-Compact）算法，这是最经典的垃圾回收策略之一。
+                    V8 将其拆分为三个阶段并引入并发/增量优化。
+                </p>
+            </div>
+
+            <!-- Three Phases -->
+            <div class="process-flow">
+                <div class="process-item">
+                    <h4>
+                        <span style="font-size: 1.4rem;">🏷️</span>
+                        标记阶段（Mark）— 识别存活对象
+                    </h4>
+                    <p>
+                        从 GC Roots 出发，递归遍历所有可达对象并标记为「存活」。V8 采用<strong>三色标记法</strong>：
+                        <br>• <span style="color: white; background: #333; padding: 1px 6px; border-radius: 4px; font-weight: 700;">白色</span> — 未访问的对象（可能是垃圾）
+                        <br>• <span style="color: white; background: #999; padding: 1px 6px; border-radius: 4px; font-weight: 700;">灰色</span> — 已发现但子对象未完全遍历
+                        <br>• <span style="color: white; background: #000; padding: 1px 6px; border-radius: 4px; font-weight: 700;">黑色</span> — 已完全遍历，确认存活
+                    </p>
+                    <div style="margin-top: 12px;">
+                        <span class="tag tag-violet">并发标记 Concurrent</span>
+                        <span class="tag tag-pink">增量标记 Incremental</span>
+                    </div>
+                </div>
+
+                <div class="process-item">
+                    <h4>
+                        <span style="font-size: 1.4rem;">✂️</span>
+                        清除阶段（Sweep）— 回收死对象
+                    </h4>
+                    <p>
+                        遍历整个老生代内存，将所有未被标记的对象（白色）回收，释放其占用的内存空间。
+                        V8 使用<strong>空闲链表（Free List）</strong>来管理回收后的内存块，方便后续快速分配。
+                    </p>
+                    <div style="margin-top: 12px;">
+                        <span class="tag tag-yellow">增量清除 Incremental</span>
+                    </div>
+                </div>
+
+                <div class="process-item">
+                    <h4>
+                        <span style="font-size: 1.4rem;">🧩</span>
+                        整理阶段（Compact）— 内存碎片整理
+                    </h4>
+                    <p>
+                        当内存碎片率达到一定阈值时，V8 会触发整理阶段。将存活对象移动到一起，
+                        消除内存中的空洞，形成连续的内存空间。<strong>这是最耗时的阶段。</strong>
+                    </p>
+                    <div style="margin-top: 12px;">
+                        <span class="tag tag-green">并行整理 Parallel</span>
+                    </div>
+                </div>
+
+                <div class="process-item">
+                    <h4>
+                        <span style="font-size: 1.4rem;">📌</span>
+                        指针更新阶段（Update Pointers）
+                    </h4>
+                    <p>
+                        Compact 阶段移动对象后，所有指向被移动对象的指针都需要更新为新地址。
+                        V8 使用<strong>前进指针（Forwarding Address）</strong>机制来高效完成指针修正。
+                    </p>
+                </div>
+            </div>
+
+            <!-- Code Example -->
+            <div class="code-block" style="margin-top: 32px;">
+                <div class="code-header">
+                    <div class="code-dots" style="display: flex; gap: 6px;">
+                        <div class="code-dot"></div>
+                        <div class="code-dot"></div>
+                        <div class="code-dot"></div>
+                    </div>
+                    <span class="code-filename">gc-example.js</span>
+                </div>
+                <div class="code-body">
+<pre><span class="code-comment">// 标记阶段的简化实现逻辑（概念示意）</span>
+<span class="code-keyword">function</span> <span class="code-func">mark</span>(root) {
+    <span class="code-keyword">const</span> <span class="code-const">stack</span> = [root];
+
+    <span class="code-keyword">while</span> (<span class="code-const">stack</span>.length > <span class="code-const">0</span>) {
+        <span class="code-keyword">const</span> <span class="code-const">obj</span> = <span class="code-const">stack</span>.pop();
+
+        <span class="code-keyword">if</span> (<span class="code-const">obj</span>.color !== <span class="code-string">'black'</span>) {
+            <span class="code-const">obj</span>.color = <span class="code-string">'black'</span>; <span class="code-comment">// 标记为存活</span>
+
+            <span class="code-comment">// 遍历所有引用的子对象</span>
+            <span class="code-keyword">for</span> (<span class="code-keyword">const</span> <span class="code-const">ref</span> <span class="code-keyword">of</span> <span class="code-const">obj</span>.references) {
+                <span class="code-keyword">if</span> (<span class="code-const">ref</span>.color !== <span class="code-string">'black'</span>) {
+                    <span class="code-const">ref</span>.color = <span class="code-string">'gray'</span>; <span class="code-comment">// 标记为待处理</span>
+                    <span class="code-const">stack</span>.push(<span class="code-const">ref</span>);
+                }
+            }
+        }
+    }
+}
+
+<span class="code-comment">// 清除阶段</span>
+<span class="code-keyword">function</span> <span class="code-func">sweep</span>(heap) {
+    <span class="code-keyword">for</span> (<span class="code-keyword">const</span> <span class="code-const">obj</span> <span class="code-keyword">of</span> heap) {
+        <span class="code-keyword">if</span> (<span class="code-const">obj</span>.color === <span class="code-string">'white'</span>) {
+            <span class="code-func">free</span>(<span class="code-const">obj</span>); <span class="code-comment">// 回收未标记的对象</span>
+        } <span class="code-keyword">else</span> {
+            <span class="code-const">obj</span>.color = <span class="code-string">'white'</span>; <span class="code-comment">// 重置为下一轮准备</span>
+        }
+    }
+}</pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== V8 Optimizations ========== -->
+    <section class="section" id="optimizations">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: rgba(251, 191, 36, 0.2);">
+                    <span>🚀</span> Orinoco 优化
+                </div>
+                <h2 class="section-title">减少 GC 停顿的先进策略</h2>
+                <p class="section-desc">
+                    Orinoco 是 V8 垃圾回收器的代号。它采用多种策略来最小化 GC 对应用的暂停时间（Stop-The-World）。
+                </p>
+            </div>
+
+            <div class="feature-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="feature-card">
+                    <div class="feature-card-icon" style="background: var(--accent);">🧵</div>
+                    <h3>并发标记 (Concurrent Marking)</h3>
+                    <p>标记工作在<strong>后台辅助线程</strong>上执行，不阻塞主线程的 JavaScript 执行。这是最关键的优化，将最耗时的标记阶段从暂停中移除。</p>
+                    <div style="margin-top: 12px;">
+                        <span class="tag tag-violet">最核心优化</span>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon" style="background: var(--secondary);">⏱️</div>
+                    <h3>增量标记 (Incremental Marking)</h3>
+                    <p>将标记工作拆分为小步骤，穿插在 JavaScript 执行之间。每次只标记一小部分，避免长时间暂停。</p>
+                    <div style="margin-top: 12px;">
+                        <span class="tag tag-pink">~1ms 每步</span>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon" style="background: var(--tertiary);">🧹</div>
+                    <h3>并发清除 (Concurrent Sweeping)</h3>
+                    <p>清除阶段也在后台线程并发执行。主线程只做少量的簿记工作，大大减少了 STW 暂停时间。</p>
+                    <div style="margin-top: 12px;">
+                        <span class="tag tag-yellow">并行处理</span>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon" style="background: var(--quaternary);">📦</div>
+                    <h3>并行整理 (Parallel Compaction)</h3>
+                    <p>内存碎片整理阶段使用多个辅助线程并行执行，加速老生代的内存整理过程。</p>
+                    <div style="margin-top: 12px;">
+                        <span class="tag tag-green">多线程</span>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon" style="background: var(--secondary);">🔀</div>
+                    <h3>写屏障 (Write Barrier)</h3>
+                    <p>并发标记期间，JS 代码可能修改对象引用。写屏障通过记录引用变更，确保并发标记的正确性（维护三色不变式）。</p>
+                    <div style="margin-top: 12px;">
+                        <code style="font-size: 0.7rem;">slot->value = new_val</code>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon" style="background: var(--accent);">📊</div>
+                    <h3>空闲时 GC (Idle-time GC)</h3>
+                    <p>利用浏览器的空闲时间（requestIdleCallback）执行 GC 工作，在用户无感知的情况下清理垃圾。</p>
+                    <div style="margin-top: 12px;">
+                        <code style="font-size: 0.7rem;">requestIdleCallback()</code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Write Barrier Deep Dive -->
+            <div class="algo-section" style="margin-top: 40px;">
+                <div class="algo-header">
+                    <div class="algo-num" style="background: var(--secondary);">🔬</div>
+                    <div class="algo-title">写屏障深度解析</div>
+                </div>
+                <p style="color: var(--muted-fg); margin-bottom: 20px;">
+                    并发标记面临的核心挑战是：当后台线程在标记时，主线程的 JavaScript 可能修改对象引用关系。
+                    例如：一个黑色对象突然引用了一个白色对象（应该是垃圾），如果没有检测机制，这个白色对象会被错误回收。
+                </p>
+                <div class="code-block">
+                    <div class="code-header">
+                        <div class="code-dots" style="display: flex; gap: 6px;">
+                            <div class="code-dot"></div>
+                            <div class="code-dot"></div>
+                            <div class="code-dot"></div>
+                        </div>
+                        <span class="code-filename">write-barrier-example.js</span>
+                    </div>
+                    <div class="code-body">
+<pre><span class="code-comment">// 危险场景：黑色对象引用白色对象</span>
+
+<span class="code-keyword">const</span> <span class="code-const">parent</span> = { name: <span class="code-string">'parent'</span> };  <span class="code-comment">// 已标记为黑色 ✅</span>
+<span class="code-keyword">const</span> <span class="code-const">child</span>  = { name: <span class="code-string">'child'</span>  };  <span class="code-comment">// 未标记 (白色) ⬜</span>
+
+<span class="code-comment">// 并发标记期间，主线程执行：</span>
+<span class="code-const">parent</span>.ref = <span class="code-const">child</span>;
+<span class="code-comment">// ⚠️ 写屏障触发！</span>
+<span class="code-comment">// 检测到黑色对象(parent)引用了白色对象(child)</span>
+<span class="code-comment">// 将 child 标记为灰色，加入标记队列</span>
+<span class="code-comment">// → child 不会被错误回收 ✅</span></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- V8 GC Timeline -->
+            <div class="algo-section" style="margin-top: 32px;">
+                <div class="algo-header">
+                    <div class="algo-num" style="background: var(--tertiary);">📈</div>
+                    <div class="algo-title">GC 执行时间线示意</div>
+                </div>
+                <div style="overflow-x: auto; padding: 8px 0;">
+                    <div style="display: flex; gap: 4px; min-width: 700px; margin-bottom: 8px;">
+                        <div style="flex: 4; height: 40px; background: var(--accent); border-radius: 6px; border: 2px solid var(--fg); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 700;">JS 执行</div>
+                        <div style="flex: 1; height: 40px; background: #FF6B6B; border-radius: 6px; border: 2px solid var(--fg); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.7rem; font-weight: 700;">STW 暂停</div>
+                        <div style="flex: 6; height: 40px; background: var(--accent); border-radius: 6px; border: 2px solid var(--fg); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 700;">JS 执行（增量标记穿插）</div>
+                        <div style="flex: 1; height: 40px; background: #FF6B6B; border-radius: 6px; border: 2px solid var(--fg); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.7rem; font-weight: 700;">STW</div>
+                        <div style="flex: 3; height: 40px; background: var(--accent); border-radius: 6px; border: 2px solid var(--fg); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 700;">JS 执行</div>
+                    </div>
+                    <div style="display: flex; gap: 4px; min-width: 700px; margin-bottom: 4px;">
+                        <div style="flex: 5; height: 24px; background: var(--tertiary); border-radius: 4px; border: 1px solid var(--fg); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700;">并发标记（辅助线程）</div>
+                        <div style="flex: 8; height: 24px; background: var(--quaternary); border-radius: 4px; border: 1px solid var(--fg); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700;">并发标记 + 并发清除（辅助线程）</div>
+                        <div style="flex: 2; height: 24px; background: var(--muted); border-radius: 4px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: var(--muted-fg);">空闲</div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--muted-fg); margin-top: 8px;">
+                        <strong>关键</strong>：只有红色区域是真正的 STW 暂停，大部分 GC 工作在后台并发完成。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Memory Leaks ========== -->
+    <section class="section" id="leaks" style="background: white;">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: rgba(244, 114, 182, 0.15);">
+                    <span>🐛</span> 内存泄漏
+                </div>
+                <h2 class="section-title">常见的内存泄漏场景</h2>
+                <p class="section-desc">
+                    即使有自动 GC，不正确的编码习惯仍然会导致内存泄漏。以下是 JavaScript 中最常见的内存泄漏场景。
+                </p>
+            </div>
+
+            <div class="leak-grid">
+                <div class="leak-card">
+                    <h4>👆 意外的全局变量</h4>
+                    <p>在函数中忘记使用 <code>let</code>/<code>const</code>，导致变量被提升为全局变量，永远不会被回收。</p>
+                    <div class="code-block" style="margin-top: 12px;">
+                        <div class="code-body" style="padding: 12px;">
+<pre style="font-size: 0.8rem;"><span class="code-keyword">function</span> <span class="code-func">leak</span>() {
+    <span class="code-comment">// 缺少 let/const，变成全局变量</span>
+    hugeArray = <span class="code-keyword">new</span> <span class="code-obj">Array</span>(<span class="code-const">1000000</span>);
+}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="leak-card">
+                    <h4>🔒 闭包引用</h4>
+                    <p>闭包持有的外部变量引用不会被释放，如果闭包本身被长期持有，其引用的整个作用域都不会被回收。</p>
+                    <div class="code-block" style="margin-top: 12px;">
+                        <div class="code-body" style="padding: 12px;">
+<pre style="font-size: 0.8rem;"><span class="code-keyword">function</span> <span class="code-func">createHandler</span>() {
+    <span class="code-keyword">const</span> <span class="code-const">hugeData</span> = <span class="code-keyword">new</span> <span class="code-obj">Array</span>(<span class="code-const">1e6</span>);
+    <span class="code-keyword">return</span> () => <span class="code-const">hugeData</span>.length;
+    <span class="code-comment">// hugeData 被闭包引用，无法回收</span>
+}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="leak-card">
+                    <h4>📡 未清理的事件监听器</h4>
+                    <p>给 DOM 元素添加了事件监听器但在元素移除时忘记移除监听器，导致关联的对象无法被 GC 回收。</p>
+                    <div class="code-block" style="margin-top: 12px;">
+                        <div class="code-body" style="padding: 12px;">
+<pre style="font-size: 0.8rem;"><span class="code-comment">// ❌ 错误：移除元素但不移除监听器</span>
+element.<span class="code-func">addEventListener</span>(<span class="code-string">'click'</span>, handler);
+element.<span class="code-func">remove</span>(); <span class="code-comment">// 监听器仍在内存中！</span>
+
+<span class="code-comment">// ✅ 正确</span>
+element.<span class="code-func">removeEventListener</span>(<span class="code-string">'click'</span>, handler);
+element.<span class="code-func">remove</span>();</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="leak-card">
+                    <h4>🗂️ 被遗忘的定时器</h4>
+                    <p>setInterval / setTimeout 回调中引用了外部大对象，未在适当时机调用 clearInterval / clearTimeout。</p>
+                    <div class="code-block" style="margin-top: 12px;">
+                        <div class="code-body" style="padding: 12px;">
+<pre style="font-size: 0.8rem;"><span class="code-keyword">const</span> <span class="code-const">timer</span> = <span class="code-func">setInterval</span>(() => {
+    <span class="code-comment">// 引用了 hugeObject，无法被回收</span>
+    <span class="code-func">doSomething</span>(hugeObject);
+}, <span class="code-const">1000</span>);
+<span class="code-comment">// 忘记 clearInterval(timer) 😱</span></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="leak-card">
+                    <h4>💾 缓存无限增长</h4>
+                    <p>使用对象作为缓存 Map 但没有清理策略（如 LRU），导致缓存无限增长。</p>
+                    <div class="code-block" style="margin-top: 12px;">
+                        <div class="code-body" style="padding: 12px;">
+<pre style="font-size: 0.8rem;"><span class="code-comment">// ❌ 无限制缓存</span>
+<span class="code-keyword">const</span> <span class="code-const">cache</span> = {};
+<span class="code-keyword">function</span> <span class="code-func">getData</span>(key) {
+    <span class="code-keyword">if</span> (!<span class="code-const">cache</span>[key]) {
+        <span class="code-const">cache</span>[key] = <span class="code-func">fetchHugeData</span>(key);
+    }
+    <span class="code-keyword">return</span> <span class="code-const">cache</span>[key];
+}
+<span class="code-comment">// ✅ 使用 WeakMap 或限制大小</span></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="leak-card">
+                    <h4>🔗 DOM 引用未清除</h4>
+                    <p>在 JavaScript 对象中保存了对已移除 DOM 元素的引用，导致 DOM 元素和关联数据都无法被回收。</p>
+                    <div class="code-block" style="margin-top: 12px;">
+                        <div class="code-body" style="padding: 12px;">
+<pre style="font-size: 0.8rem;"><span class="code-keyword">const</span> <span class="code-const">elements</span> = {};
+<span class="code-const">elements</span>.btn = document.<span class="code-func">getElementById</span>(<span class="code-string">'btn'</span>);
+<span class="code-comment">// 后来 DOM 中移除了 #btn</span>
+<span class="code-comment">// 但 elements.btn 仍持有引用！</span>
+<span class="code-comment">// ✅ 用完置 null</span></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== WeakRef & FinalizationRegistry ========== -->
+    <section class="section" id="tools">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: rgba(52, 211, 153, 0.15);">
+                    <span>🛠️</span> 现代 API
+                </div>
+                <h2 class="section-title">帮助 GC 的现代 JavaScript API</h2>
+                <p class="section-desc">
+                    ES2021 引入了 WeakRef 和 FinalizationRegistry，让开发者可以更精细地参与垃圾回收过程。
+                </p>
+            </div>
+
+            <div class="tool-grid">
+                <div class="tool-card">
+                    <div class="tool-card-icon" style="background: var(--accent); color: white;">🔗</div>
+                    <h4>WeakRef</h4>
+                    <p>弱引用。不会阻止 GC 回收被引用的对象。通过 <code>deref()</code> 访问，可能返回 <code>undefined</code>。</p>
+                    <div class="code-block" style="text-align: left; margin-top: 12px;">
+                        <div class="code-body" style="padding: 10px;">
+<pre style="font-size: 0.75rem;"><span class="code-keyword">let</span> <span class="code-const">obj</span> = { data: <span class="code-string">'hello'</span> };
+<span class="code-keyword">const</span> <span class="code-const">ref</span> = <span class="code-keyword">new</span> <span class="code-obj">WeakRef</span>(<span class="code-const">obj</span>);
+
+<span class="code-const">obj</span> = <span class="code-keyword">null</span>; <span class="code-comment">// 可被GC</span>
+<span class="code-const">ref</span>.<span class="code-func">deref</span>(); <span class="code-comment">// undefined or {data}</span></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-card-icon" style="background: var(--secondary); color: white;">📋</div>
+                    <h4>FinalizationRegistry</h4>
+                    <p>在对象被 GC 回收后执行回调。用于清理关联资源（如关闭文件句柄、网络连接）。</p>
+                    <div class="code-block" style="text-align: left; margin-top: 12px;">
+                        <div class="code-body" style="padding: 10px;">
+<pre style="font-size: 0.75rem;"><span class="code-keyword">const</span> <span class="code-const">reg</span> = <span class="code-keyword">new</span> <span class="code-obj">FinalizationRegistry</span>(
+    (heldValue) => {
+        console.<span class="code-func">log</span>(heldValue + <span class="code-string">' 被回收'</span>);
+    }
+);
+<span class="code-const">reg</span>.<span class="code-func">register</span>(<span class="code-const">obj</span>, <span class="code-string">'myObj'</span>);</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-card-icon" style="background: var(--tertiary); color: var(--fg);">📦</div>
+                    <h4>WeakMap / WeakSet</h4>
+                    <p>键为弱引用的 Map/Set。当键对象无其他引用时，对应条目自动被 GC 清除。</p>
+                    <div class="code-block" style="text-align: left; margin-top: 12px;">
+                        <div class="code-body" style="padding: 10px;">
+<pre style="font-size: 0.75rem;"><span class="code-keyword">const</span> <span class="code-const">wm</span> = <span class="code-keyword">new</span> <span class="code-obj">WeakMap</span>();
+<span class="code-keyword">let</span> <span class="code-const">key</span> = {};
+<span class="code-const">wm</span>.<span class="code-func">set</span>(<span class="code-const">key</span>, <span class="code-string">'data'</span>);
+
+<span class="code-const">key</span> = <span class="code-keyword">null</span>; <span class="code-comment">// 条目自动清除</span></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Debugging Tools ========== -->
+    <section class="section" id="debugging" style="background: var(--muted);">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: white;">
+                    <span>🔍</span> 调试工具
+                </div>
+                <h2 class="section-title">如何检测内存问题</h2>
+                <p class="section-desc">
+                    掌握工具是排查内存泄漏的关键。以下是最常用的内存调试工具和技巧。
+                </p>
+            </div>
+
+            <div class="tool-grid">
+                <div class="tool-card">
+                    <div class="tool-card-icon" style="background: var(--accent); color: white;">🖼️</div>
+                    <h4>Chrome DevTools - Memory</h4>
+                    <p><strong>Heap Snapshot</strong>：拍堆快照对比内存变化。<br>
+                       <strong>Allocation Timeline</strong>：实时观察内存分配。<br>
+                       <strong>Allocation Sampling</strong>：低开销的分配分析。</p>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-card-icon" style="background: var(--secondary); color: white;">📊</div>
+                    <h4>Performance Monitor</h4>
+                    <p>实时监控 JS Heap 大小、DOM 节点数、事件监听器数量。锯齿形是正常的，持续上升则有泄漏。</p>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-card-icon" style="background: var(--tertiary); color: var(--fg);">🖥️</div>
+                    <h4>Node.js --inspect</h4>
+                    <p>使用 <code>--inspect</code> 标志启动 Node.js，连接 Chrome DevTools 进行内存分析。<br>
+                    <code>--expose-gc</code> 手动触发 GC。</p>
+                </div>
+            </div>
+
+            <div class="info-box tip" style="margin-top: 32px;">
+                <strong>💡 排查内存泄漏三步法</strong>
+                <strong>1. 拍堆快照</strong>：在可疑操作前各拍一次 Heap Snapshot。<br>
+                <strong>2. 对比快照</strong>：比较两次快照中「分配但未释放」的对象，找到泄漏对象。<br>
+                <strong>3. 追踪引用链</strong>：在 Retainers 面板查看泄漏对象被谁引用，定位代码根因。
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Summary / Cheat Sheet ========== -->
+    <section class="section" id="summary">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label" style="background: rgba(139, 92, 246, 0.15);">
+                    <span>📝</span> 速查总结
+                </div>
+                <h2 class="section-title">V8 GC 知识速查表</h2>
+            </div>
+
+            <div class="comparison-table" style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 160px;">方面</th>
+                            <th style="min-width: 200px;">新生代 (Young Gen)</th>
+                            <th style="min-width: 200px;">老生代 (Old Gen)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>空间大小</td>
+                            <td>1-8 MB（半区各一半）</td>
+                            <td>可达 1.5 GB+</td>
+                        </tr>
+                        <tr>
+                            <td>算法</td>
+                            <td>Scavenge (Cheney 半区复制)</td>
+                            <td>Mark-Sweep-Compact</td>
+                        </tr>
+                        <tr>
+                            <td>对象特征</td>
+                            <td>新分配、生命周期短</td>
+                            <td>长期存活、从新生代晋升</td>
+                        </tr>
+                        <tr>
+                            <td>GC 频率</td>
+                            <td>高（空间小，容易满）</td>
+                            <td>低（空间大）</td>
+                        </tr>
+                        <tr>
+                            <td>单次耗时</td>
+                            <td>极短（&lt;1ms）</td>
+                            <td>较长（需要优化）</td>
+                        </tr>
+                        <tr>
+                            <td>并发优化</td>
+                            <td>并行 Scavenge</td>
+                            <td>并发标记 + 增量标记 + 并发清除</td>
+                        </tr>
+                        <tr>
+                            <td>内存碎片</td>
+                            <td>无（紧凑复制）</td>
+                            <td>有碎片 → Compact 整理</td>
+                        </tr>
+                        <tr>
+                            <td>晋升条件</td>
+                            <td>2 次 GC 存活 / To Space &gt; 25%</td>
+                            <td>—</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Best Practices -->
+            <div style="margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                <div class="card" style="box-shadow: var(--shadow-dark);">
+                    <div class="card-icon" style="background: var(--quaternary);">✅</div>
+                    <h3 class="card-title">最佳实践</h3>
+                    <p>• 使用 <code>let</code>/<code>const</code> 避免全局变量<br>
+                       • 及时移除不再需要的事件监听器<br>
+                       • 用 <code>WeakMap</code> 替代对象做缓存<br>
+                       • 组件销毁时清理定时器<br>
+                       • 避免在循环中创建大量闭包<br>
+                       • 使用 <code>WeakRef</code> 管理大对象引用</p>
+                </div>
+
+                <div class="card" style="box-shadow: var(--shadow-dark);">
+                    <div class="card-icon" style="background: var(--secondary);">⚠️</div>
+                    <h3 class="card-title">监控指标</h3>
+                    <p>• JS Heap 大小趋势（应呈锯齿形）<br>
+                       • GC 暂停时间（&lt;50ms 较理想）<br>
+                       • GC 频率（过于频繁可能有泄漏）<br>
+                       • DOM 节点数（持续增长需排查）<br>
+                       • 事件监听器数量（只增不减有风险）</p>
+                </div>
+
+                <div class="card" style="box-shadow: var(--shadow-dark);">
+                    <div class="card-icon" style="background: var(--accent);">🎛️</div>
+                    <h3 class="card-title">V8 Flags（调试用）</h3>
+                    <p>• <code>--trace-gc</code> 打印 GC 日志<br>
+                       • <code>--trace-gc-verbose</code> 详细 GC 信息<br>
+                       • <code>--expose-gc</code> 暴露 gc() 函数<br>
+                       • <code>--max-old-space-size=4096</code> 限制老生代大小<br>
+                       • <code>--max-semi-space-size=16</code> 限制新生代大小</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Footer ========== -->
+    <footer class="footer">
+        <div class="container">
+            <div style="margin-bottom: 20px;">
+                <span style="font-size: 2rem;">🧹</span>
+            </div>
+            <p class="footer-text">
+                V8 垃圾回收是一个持续演进的系统。Orinoco 项目不断引入新的优化技术，
+                使 JavaScript 应用的内存管理越来越高效。
+            </p>
+            <div class="footer-links">
+                <a href="https://v8.dev/blog" target="_blank">V8 官方博客</a>
+                <a href="https://v8.dev/blog/trash-talk" target="_blank">Trash Talk (GC 系列)</a>
+                <a href="https://developer.chrome.com/docs/devtools/memory-problems" target="_blank">Chrome DevTools 内存</a>
+            </div>
+            <p class="footer-text" style="margin-top: 24px; font-size: 0.8rem; color: var(--border);">
+                Built with Playful Geometric Design System 🎨
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Intersection Observer for scroll animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0) scale(1)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe elements
+        document.querySelectorAll('.feature-card, .gen-card, .leak-card, .tool-card, .process-item, .algo-section').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px) scale(0.95)';
+            el.style.transition = 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            observer.observe(el);
+        });
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('.nav-links a[href^="#"], .btn[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Memory bar animation
+        const memoryObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const youngBar = document.getElementById('youngBar');
+                    const oldBar = document.getElementById('oldBar');
+                    const loBar = document.getElementById('loBar');
+                    
+                    if (youngBar) {
+                        youngBar.style.width = '0%';
+                        setTimeout(() => { youngBar.style.width = '30%'; }, 200);
+                    }
+                    if (oldBar) {
+                        oldBar.style.width = '0%';
+                        setTimeout(() => { oldBar.style.width = '3%'; }, 400);
+                    }
+                    if (loBar) {
+                        loBar.style.width = '0%';
+                        setTimeout(() => { loBar.style.width = '8%'; }, 600);
+                    }
+                    
+                    memoryObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.3 });
+
+        const heroCard = document.querySelector('.hero-memory-card');
+        if (heroCard) {
+            memoryObserver.observe(heroCard);
+        }
+    </script>
+</body>
+</html>
