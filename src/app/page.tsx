@@ -30,6 +30,14 @@ export default function Home() {
       shadowColor: 'var(--tertiary)'
     },
     {
+      id: 'js-implicit-conversion',
+      title: 'JavaScript隐式转换',
+      desc: '深入理解 JavaScript 的隐式转换机制，掌握类型转换的底层原理。',
+      icon: <Activity size={24} />,
+      color: 'var(--secondary)',
+      shadowColor: 'var(--secondary)'
+    },
+    {
       id: 'js-event-loop',
       title: 'JavaScript 事件循环',
       desc: '宏任务与微任务的爱恨情仇，Node.js 与浏览器环境下的机制差异。',
@@ -148,6 +156,22 @@ export default function Home() {
       icon: <Aperture size={24} />,
       color: 'var(--quaternary)',
       shadowColor: 'var(--quaternary)'
+    },
+    {
+      id: 'https-tls',
+      title: 'HTTPS TLS 握手',
+      desc: '深度解析对称加密与非对称加密、TLS 1.2/1.3 握手全流程及数字证书验证机制。',
+      icon: <Lock size={24} />,
+      color: 'var(--accent)',
+      shadowColor: 'var(--foreground)'
+    },
+    {
+      id: 'react-native-new-arch',
+      title: 'React Native 新架构',
+      desc: '深度剖析 Fabric 渲染引擎、TurboModules 与 JSI 底层通信机制。',
+      icon: <Smartphone size={24} />,
+      color: 'var(--secondary)',
+      shadowColor: 'var(--secondary)'
     }
   ];
 
@@ -211,10 +235,10 @@ export default function Home() {
   ];
 
   const renderGrid = (items: any[]) => (
-    <div className="grid grid-cols-3 md:grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-2 gap-y-10 md:gap-8 md:gap-y-[60px]">
+    <div className="grid grid-cols-3 md:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] lg:grid-cols-4 gap-2 gap-y-10 md:gap-8 md:gap-y-[60px]">
       {items.map((topic, index) => (
-        <Link href={`/knowledge/${topic.id}`} key={topic.id} className="animate-slide topic-card-link block" style={{ animationDelay: `${0.2 + index * 0.1}s` }}>
-          <div className="topic-card relative cursor-pointer h-full bg-[var(--card)] border-2 border-[var(--foreground)] rounded-xl md:rounded-[var(--radius-lg)] p-2 md:p-8 shadow-[4px_4px_0px_0px_var(--shadow-color)] md:shadow-[8px_8px_0px_0px_var(--shadow-color)] hover:-translate-y-1 transition-transform"
+        <Link href={`/knowledge/${topic.id}`} key={topic.id} className="topic-card-link block">
+          <div className="topic-card relative cursor-pointer h-full bg-[var(--card)] border-2 border-[var(--foreground)] rounded-xl md:rounded-[var(--radius-lg)] p-2 md:p-6 shadow-[4px_4px_0px_0px_var(--shadow-color)] md:shadow-[8px_8px_0px_0px_var(--shadow-color)] hover:-translate-y-1 transition-transform"
                style={{ '--shadow-color': topic.shadowColor } as React.CSSProperties}>
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:-top-[28px] md:left-[28px] w-10 h-10 md:w-14 md:h-14 rounded-md border-2 border-[var(--foreground)] flex items-center justify-center shadow-[2px_2px_0px_var(--foreground)] md:shadow-[4px_4px_0px_var(--foreground)]"
                  style={{
@@ -239,25 +263,25 @@ export default function Home() {
 
   return (
     <div className="bg-dot-grid min-h-[calc(100vh-80px)]">
-      <div className="container mx-auto px-4 py-8 md:px-6 md:py-20">
+      <div className="container mx-auto px-4 py-8 md:px-6 md:py-16">
         <header className="text-center mb-10 md:mb-20">
           <div className="animate-pop inline-flex items-center gap-2 px-4 py-2 md:px-5 md:py-2 bg-[var(--tertiary)] border-2 border-[var(--foreground)] rounded-full font-bold text-sm md:text-[0.9rem] mb-6 shadow-[3px_3px_0px_var(--foreground)]">
             🚀 持续进化中
           </div>
-          <h1 className="animate-slide text-3xl sm:text-4xl md:text-[clamp(2.5rem,5vw,4rem)] mb-5 font-bold">
+          <h1 className="text-3xl sm:text-4xl md:text-[clamp(2.5rem,5vw,4rem)] mb-5 font-bold">
             前端核心 <span style={{ color: 'var(--accent)' }}>知识库</span>
           </h1>
-          <p className="animate-slide text-sm md:text-[1.15rem] text-[var(--muted-foreground)] max-w-[600px] mx-auto px-2 md:px-0" style={{ animationDelay: '0.1s' }}>
+          <p className="text-sm md:text-[1.15rem] text-[var(--muted-foreground)] max-w-[600px] mx-auto px-2 md:px-0">
             这里收录了那些难啃但又必须掌握的前端底层原理与进阶知识。打破碎片化，构建系统知识图谱。
           </p>
         </header>
 
-        <h2 className="animate-slide text-xl md:text-[2rem] mb-6 md:mb-[52px] font-bold">
+        <h2 className="text-xl md:text-[2rem] mb-6 md:mb-[52px] font-bold">
           📚 基础与进阶核心知识
         </h2>
         {renderGrid(coreTopics)}
 
-        <h2 className="animate-slide text-xl md:text-[2rem] mb-6 md:mb-[52px] mt-12 md:mt-[80px] font-bold">
+        <h2 className="text-xl md:text-[2rem] mb-6 md:mb-[52px] mt-12 md:mt-[80px] font-bold">
           💼 核心项目实战沉淀
         </h2>
         {renderGrid(projectTopics)}

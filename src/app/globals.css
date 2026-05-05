@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.osyb.cn/css2?family=Outfit:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 /* PrismJS Code Highlighting Theme (Dracula) */
 @import "prism-themes/themes/prism-dracula.css";
 
@@ -59,7 +59,7 @@ a {
 
 /* Utilities */
 .container {
-  max-width: 72rem; /* max-w-6xl */
+  max-width: 80rem; /* max-w-6xl */
   padding: 0 1.5rem;
 }
 

@@ -26,7 +26,7 @@ export default function RootLayout({
           borderBottom: '2px solid var(--border)',
           padding: '16px 0'
         }}>
-          <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 auto' }}>
             <Link href="/" style={{
               display: 'flex',
               alignItems: 'center',
