@@ -39,7 +39,7 @@ export default function Home() {
     },
     {
       id: 'build-tools',
-      title: '构建工具底层原理',
+      title: 'Vite 核心机制',
       desc: '剖析 Webpack 与 Vite 核心机制，Loader/Plugin 开发与 AST 抽象语法树。',
       icon: <Package size={24} />,
       color: 'var(--accent)',
@@ -238,38 +238,26 @@ export default function Home() {
   );
 
   return (
-    <div className="bg-dot-grid" style={{ minHeight: 'calc(100vh - 80px)' }}>
-      <div className="container" style={{ padding: '80px 24px' }}>
-        <header style={{ textAlign: 'center', marginBottom: '80px' }}>
-          <div className="animate-pop" style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 20px',
-            background: 'var(--tertiary)',
-            border: '2px solid var(--foreground)',
-            borderRadius: 'var(--radius-full)',
-            fontWeight: 700,
-            fontSize: '0.9rem',
-            boxShadow: '3px 3px 0px var(--foreground)',
-            marginBottom: '24px'
-          }}>
+    <div className="bg-dot-grid min-h-[calc(100vh-80px)]">
+      <div className="container mx-auto px-4 py-8 md:px-6 md:py-20">
+        <header className="text-center mb-10 md:mb-20">
+          <div className="animate-pop inline-flex items-center gap-2 px-4 py-2 md:px-5 md:py-2 bg-[var(--tertiary)] border-2 border-[var(--foreground)] rounded-full font-bold text-sm md:text-[0.9rem] mb-6 shadow-[3px_3px_0px_var(--foreground)]">
             🚀 持续进化中
           </div>
-          <h1 className="animate-slide" style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', marginBottom: '20px' }}>
+          <h1 className="animate-slide text-3xl sm:text-4xl md:text-[clamp(2.5rem,5vw,4rem)] mb-5 font-bold">
             前端核心 <span style={{ color: 'var(--accent)' }}>知识库</span>
           </h1>
-          <p className="animate-slide" style={{ fontSize: '1.15rem', color: 'var(--muted-foreground)', maxWidth: '600px', margin: '0 auto', animationDelay: '0.1s' }}>
+          <p className="animate-slide text-sm md:text-[1.15rem] text-[var(--muted-foreground)] max-w-[600px] mx-auto px-2 md:px-0" style={{ animationDelay: '0.1s' }}>
             这里收录了那些难啃但又必须掌握的前端底层原理与进阶知识。打破碎片化，构建系统知识图谱。
           </p>
         </header>
 
-        <h2 className="animate-slide" style={{ fontSize: '2rem', marginBottom: '52px', fontWeight: 700 }}>
+        <h2 className="animate-slide text-xl md:text-[2rem] mb-6 md:mb-[52px] font-bold">
           📚 基础与进阶核心知识
         </h2>
         {renderGrid(coreTopics)}
 
-        <h2 className="animate-slide" style={{ fontSize: '2rem', marginBottom: '52px', marginTop: '80px', fontWeight: 700 }}>
+        <h2 className="animate-slide text-xl md:text-[2rem] mb-6 md:mb-[52px] mt-12 md:mt-[80px] font-bold">
           💼 核心项目实战沉淀
         </h2>
         {renderGrid(projectTopics)}
