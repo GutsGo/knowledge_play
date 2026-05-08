@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Code2, Layers, Cpu, Network, Lock, Zap, Package, Braces, Activity, Server, Database, Terminal, Smartphone, Component, GitBranch, Aperture, Hexagon } from 'lucide-react';
+import { BookOpen, Code2, Layers, Cpu, Network, Lock, Zap, Package, Braces, Activity, Server, Database, Terminal, Smartphone, Component, GitBranch, Aperture, Hexagon, Globe } from 'lucide-react';
 
 export default function Home() {
   const coreTopics = [
@@ -172,6 +172,54 @@ export default function Home() {
       icon: <Smartphone size={24} />,
       color: 'var(--secondary)',
       shadowColor: 'var(--secondary)'
+    },
+    {
+      id: 'css-grid',
+      title: 'CSS Grid 布局',
+      desc: '彻底掌握二维布局神器，从基本语法到网格区域、隐式网格与自适应响应式布局实战。',
+      icon: <Component size={24} />,
+      color: 'var(--tertiary)',
+      shadowColor: 'var(--tertiary)'
+    },
+    {
+      id: 'css-flex',
+      title: 'CSS Flex 布局',
+      desc: '一维布局利器，深度解析弹性容器属性、弹性项目缩放原理及常见居中方案。',
+      icon: <Layers size={24} />,
+      color: 'var(--quaternary)',
+      shadowColor: 'var(--quaternary)'
+    },
+    {
+      id: 'esm-commonjs',
+      title: 'ESM 与 CommonJS',
+      desc: '深度对比两种模块规范：加载机制、循环引用处理、Tree Shaking 支持及 Node.js 中的混合使用。',
+      icon: <Package size={24} />,
+      color: 'var(--accent)',
+      shadowColor: 'var(--accent)'
+    },
+    {
+      id: 'raf-ric',
+      title: 'rAF 与 rIC',
+      desc: '掌握浏览器性能优化双剑客：requestAnimationFrame 保证动画丝滑，requestIdleCallback 拆分长任务避免掉帧。',
+      icon: <Zap size={24} />,
+      color: 'var(--tertiary)',
+      shadowColor: 'var(--tertiary)'
+    },
+    {
+      id: 'scope-chain',
+      title: '作用域与作用域链',
+      desc: '掌握词法作用域、执行上下文、变量提升与闭包的底层机制，彻底理解标识符查找规则。',
+      icon: <Hexagon size={24} />,
+      color: 'var(--quaternary)',
+      shadowColor: 'var(--quaternary)'
+    },
+    {
+      id: 'http-versions',
+      title: 'HTTP 2.0 & 3.0',
+      desc: '从多路复用到 QUIC 协议：深度解析现代网络协议的进化之路，攻克队头阻塞与连接延迟。',
+      icon: <Globe size={24} />,
+      color: 'var(--accent)',
+      shadowColor: 'var(--accent)'
     }
   ];
 
