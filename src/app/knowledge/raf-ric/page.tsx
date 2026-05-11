@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useReducer,
 } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Zap,
   Clock,
@@ -63,7 +64,8 @@ function IconBadge({
 }
 
 /* ─────────────────── helper: code block ─────────────────── */
-function CodeBlock({ code, title }: { code: string; title?: string }) {
+function CodeBlock({ code, title, language = "javascript" }: { code: string; title?: string; language?: string }) {
+  const html = highlightCode(code, language);
   return (
     <div
       className="animate-slide"
@@ -99,16 +101,15 @@ function CodeBlock({ code, title }: { code: string; title?: string }) {
         </div>
       )}
       <pre
-        className="overflow-x-auto p-4"
+        className={`overflow-x-auto p-4 language-${language}`}
         style={{
           fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
           fontSize: "0.82rem",
           lineHeight: 1.7,
-          color: "#e2e8f0",
           margin: 0,
         }}
       >
-        <code>{code}</code>
+        <code className={`language-${language}`} dangerouslySetInnerHTML={{ __html: html }} />
       </pre>
     </div>
   );

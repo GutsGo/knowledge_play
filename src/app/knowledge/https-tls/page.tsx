@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Shield,
   Lock,
@@ -836,9 +837,7 @@ export default function TLSHandshakePage() {
                                 "'Fira Code', 'JetBrains Mono', monospace",
                             }}
                           >
-                            <code className="language-plaintext">
-                              {step.data}
-                            </code>
+                            <code className="language-bash" dangerouslySetInnerHTML={{ __html: highlightCode(step.data, "bash") }} />
                           </pre>
                         )}
                       </div>
@@ -1405,7 +1404,7 @@ export default function TLSHandshakePage() {
                 fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
               }}
             >
-              <code className="language-plaintext">{`# TLS 1.2 密钥派生流程
+              <code className="language-bash" dangerouslySetInnerHTML={{ __html: highlightCode(`# TLS 1.2 密钥派生流程
 
 Pre_Master_Secret:
   RSA模式: RSA_Decrypt(ClientKeyExchange)
@@ -1429,7 +1428,7 @@ Key_Block = PRF(
 ├── client_write_key      (16字节, AES-128)
 ├── server_write_key      (16字节)
 ├── client_write_IV       (4字节)
-└── server_write_IV       (4字节)`}</code>
+└── server_write_IV       (4字节)`, "bash") }} />
             </pre>
           </div>
 
@@ -1458,7 +1457,7 @@ Key_Block = PRF(
                 fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
               }}
             >
-              <code className="language-plaintext">{`# TLS 1.3 密钥派生流程 (HKDF)
+              <code className="language-bash" dangerouslySetInnerHTML={{ __html: highlightCode(`# TLS 1.3 密钥派生流程 (HKDF)
 
 Shared_Secret = ECDHE(私钥, 对方公钥)
 
@@ -1489,7 +1488,7 @@ server_handshake_key = ...
 master_secret = HKDF-Extract(
   salt = Handshake_Secret,
   IKM  = 0)
-# → 派生 Application Traffic Keys`}</code>
+# → 派生 Application Traffic Keys`, "bash") }} />
             </pre>
           </div>
         </div>

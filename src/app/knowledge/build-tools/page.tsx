@@ -4,6 +4,7 @@ import Prism from "prismjs";
 import "prismjs/components/prism-typescript";
 import "prismjs/components/prism-bash";
 import "prismjs/components/prism-javascript";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Zap,
   Server,
@@ -784,9 +785,7 @@ await server.listen()
                     {item.detail}
                   </p>
                   <pre className="bg-[#1E293B] rounded-xl p-4 overflow-x-auto border-2 border-[var(--foreground)]">
-                    <code className="text-xs text-[#E2E8F0] font-['JetBrains_Mono',monospace] leading-relaxed">
-                      {item.code}
-                    </code>
+                    <code className="text-xs text-[#E2E8F0] font-['JetBrains_Mono',monospace] leading-relaxed language-typescript" dangerouslySetInnerHTML={{ __html: highlightCode(item.code, "typescript") }} />
                   </pre>
                 </div>
               ))}

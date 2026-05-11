@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { highlightCode } from '@/lib/prism-highlight';
 import {
   CircleDot,
   Layers,
@@ -1003,7 +1004,7 @@ export default function JavaScriptScopePage() {
                 {/* 代码块 */}
                 <div className="bg-gray-900 rounded-xl p-4 border-2 border-foreground mb-6 overflow-x-auto">
                   <pre className="text-sm">
-                    <code className="text-gray-300">{q.code}</code>
+                    <code className="language-javascript" dangerouslySetInnerHTML={{ __html: highlightCode(q.code, "javascript") }} />
                   </pre>
                 </div>
 

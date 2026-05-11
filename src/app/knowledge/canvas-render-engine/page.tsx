@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Layers,
   Zap,
@@ -1001,7 +1002,7 @@ export default function CanvasRenderingPipelinePage() {
                       }}
                     >
                       <pre className="font-mono text-sm leading-relaxed">
-                        <code className="text-green-300">{tech.code}</code>
+                        <code className="language-javascript" dangerouslySetInnerHTML={{ __html: highlightCode(tech.code, "javascript") }} />
                       </pre>
                     </div>
                   </div>

@@ -153,3 +153,39 @@ a {
   transform: translate(1px, 1px);
   box-shadow: 2px 2px 0px var(--border);
 }
+
+/* Scrollbar Styles - Playful Geometric */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border: 2px solid var(--foreground);
+  border-radius: var(--radius-full);
+  box-shadow: 2px 2px 0px 0px var(--foreground);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary);
+  box-shadow: 3px 3px 0px 0px var(--foreground);
+  transform: scale(1.1);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--background);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--background);
+}

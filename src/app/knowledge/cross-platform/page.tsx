@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Layers,
   Zap,
@@ -1536,7 +1537,7 @@ export default function FlutterVsReactNativePage() {
                 color: "#E2E8F0",
               }}
             >
-              <code>{`import 'package:flutter/material.dart';
+              <code className="language-dart" dangerouslySetInnerHTML={{ __html: highlightCode(`import 'package:flutter/material.dart';
 
 class CounterApp extends StatefulWidget {
   @override
@@ -1571,7 +1572,7 @@ class _CounterAppState extends State<CounterApp> {
       ),
     );
   }
-}`}</code>
+}`, "dart") }} />
             </pre>
           </div>
 
@@ -1605,7 +1606,7 @@ class _CounterAppState extends State<CounterApp> {
                 color: "#E2E8F0",
               }}
             >
-              <code>{`import React, { useState } from 'react';
+              <code className="language-jsx" dangerouslySetInnerHTML={{ __html: highlightCode(`import React, { useState } from 'react';
 import { View, Text, Button, StyleSheet } from 'react-native';
 
 export default function CounterApp() {
@@ -1633,7 +1634,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
   },
-});`}</code>
+});`, "jsx") }} />
             </pre>
           </div>
         </div>

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   TreePine,
   Code2,
@@ -719,7 +720,7 @@ export default function ASTBabelPage() {
               minHeight: "120px",
             }}
           >
-            <code>{CODE_SAMPLES[activeStep].code}</code>
+            <code className="language-javascript" dangerouslySetInnerHTML={{ __html: highlightCode(CODE_SAMPLES[activeStep].code, "javascript") }} />
           </pre>
         </div>
       </section>
@@ -779,7 +780,7 @@ export default function ASTBabelPage() {
               className="p-5 text-sm leading-relaxed overflow-x-auto"
               style={{ fontFamily: "monospace", color: "var(--foreground)" }}
             >
-              <code>{BABEL_PLUGINS[pluginIdx].input}</code>
+              <code className="language-javascript" dangerouslySetInnerHTML={{ __html: highlightCode(BABEL_PLUGINS[pluginIdx].input, "javascript") }} />
             </pre>
           </div>
 
@@ -824,7 +825,7 @@ export default function ASTBabelPage() {
                 className="p-5 text-sm leading-relaxed overflow-x-auto animate-pop"
                 style={{ fontFamily: "monospace", color: "var(--foreground)" }}
               >
-                <code>{BABEL_PLUGINS[pluginIdx].output}</code>
+                <code className="language-javascript" dangerouslySetInnerHTML={{ __html: highlightCode(BABEL_PLUGINS[pluginIdx].output, "javascript") }} />
               </pre>
             )}
           </div>

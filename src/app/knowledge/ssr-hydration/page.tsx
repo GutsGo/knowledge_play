@@ -1,687 +1,1368 @@
-// app/rendering-strategies/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
-  Monitor,
-  Server,
-  FileText,
-  RefreshCw,
+  Globe,
   Zap,
   Clock,
-  Globe,
-  Database,
+  Server,
+  RefreshCw,
   ArrowRight,
-  Check,
-  X,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Lightbulb,
-  Code2,
-  Gauge,
-  Search,
+  CheckCircle2,
+  XCircle,
   Layers,
-  Users,
-  TrendingUp,
-  Workflow,
-  Cpu,
-  HardDrive,
   Timer,
+  Database,
+  Code2,
+  BookOpen,
+  Lightbulb,
+  Shield,
+  MonitorSmartphone,
+  Gauge,
+  RotateCcw,
+  Users,
+  MousePointerClick,
+  Search,
+  Package,
   Eye,
+  Sparkles,
+  CircleDot,
+  Play,
+  Pause,
+  HardDrive,
+  FileCode,
+  TrendingUp,
 } from "lucide-react";
 
-/* ──────────────────────────── 类型定义 ──────────────────────────── */
-
-interface StrategyCard {
-  id: string;
-  label: string;
-  title: string;
-  subtitle: string;
-  color: string;
-  colorVar: string;
-  shadowVar: string;
-  icon: React.ReactNode;
-  brief: string;
-  when: string;
-  examples: string[];
-  pros: string[];
-  cons: string[];
+/* ─────────────────────────────────────────────────────────
+   Code Block Component (Prism.js 高亮)
+   ───────────────────────────────────────────────────────── */
+function CodeBlock({
+  code,
+  language = "typescript",
+  title,
+}: {
   code: string;
-  flow: { step: string; desc: string }[];
+  language?: string;
+  title?: string;
+}) {
+  const html = highlightCode(code, language);
+  return (
+    <div className="border-2 border-[var(--foreground)] rounded-2xl overflow-hidden shadow-[6px_6px_0px_0px_var(--foreground)] bg-[#1E293B]">
+      {title && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-[#0F172A] border-b-2 border-[var(--foreground)]">
+          <span className="w-3 h-3 rounded-full bg-[#F472B6] border border-[var(--foreground)]" />
+          <span className="w-3 h-3 rounded-full bg-[#FBBF24] border border-[var(--foreground)]" />
+          <span className="w-3 h-3 rounded-full bg-[#34D399] border border-[var(--foreground)]" />
+          <span className="ml-2 text-[#94A3B8] text-xs font-['Plus_Jakarta_Sans'] font-semibold">
+            {title}
+          </span>
+          <span className="ml-auto px-2 py-0.5 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold uppercase tracking-wider border border-white/20">
+            {language}
+          </span>
+        </div>
+      )}
+      <pre className="p-5 overflow-x-auto text-sm leading-relaxed">
+        <code
+          className={`font-['JetBrains_Mono',monospace] text-[#E2E8F0] language-${language}`}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </pre>
+    </div>
+  );
 }
 
-/* ──────────────────────────── 数据 ──────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   流程图组件
+   ───────────────────────────────────────────────────────── */
+function FlowStep({
+  icon: Icon,
+  label,
+  color,
+  timing,
+}: {
+  icon: React.ElementType;
+  label: string;
+  color: string;
+  timing?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 min-w-[72px]">
+      <div
+        className="w-11 h-11 rounded-xl border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]"
+        style={{ backgroundColor: color }}
+      >
+        <Icon className="w-5 h-5 text-white" strokeWidth={2.5} />
+      </div>
+      <span className="text-[11px] font-bold text-[var(--foreground)] text-center leading-tight max-w-[80px]">
+        {label}
+      </span>
+      {timing && (
+        <span className="text-[10px] font-['JetBrains_Mono',monospace] text-[var(--foreground)]/50 bg-[var(--border)] px-1.5 py-0.5 rounded-full whitespace-nowrap">
+          {timing}
+        </span>
+      )}
+    </div>
+  );
+}
 
-const strategies: StrategyCard[] = [
-  {
-    id: "csr",
-    label: "Client-Side Rendering",
-    title: "CSR",
-    subtitle: "客户端渲染",
-    color: "bg-purple-100",
-    colorVar: "var(--accent)",
-    shadowVar: "8px 8px 0px 0px var(--accent)",
-    icon: <Monitor strokeWidth={2.5} className="w-6 h-6" />,
-    brief:
-      "所有渲染工作在浏览器端完成。服务器只返回一个空的 HTML 框架和 JavaScript Bundle，由浏览器下载、解析并执行 JS 后生成完整的 DOM。",
-    when: "适合对 SEO 要求不高、交互极其复杂的管理后台 / SPA 应用",
-    examples: ["后台管理系统", "在线文档编辑器", "Figma 类工具"],
-    pros: ["前后端彻底分离", "交互响应极快（后续导航）", "服务器压力极小", "部署简单（静态托管即可）"],
-    cons: ["首屏白屏时间长", "SEO 极差", "JS 未加载完页面不可用", "低端设备性能开销大"],
-    code: `// CSR 典型代码 — React SPA
-function App() {
+function FlowArrow({ color }: { color?: string }) {
+  return (
+    <ArrowRight
+      className="w-4 h-4 flex-shrink-0 mx-0.5"
+      style={{ color: color || "var(--foreground)", opacity: 0.35 }}
+      strokeWidth={2.5}
+    />
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   性能指标条组件
+   ───────────────────────────────────────────────────────── */
+function MetricBar({
+  value,
+  max,
+  color,
+  label,
+}: {
+  value: number;
+  max: number;
+  color: string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs font-semibold text-[var(--foreground)] w-10 text-right font-['Plus_Jakarta_Sans']">
+        {label}
+      </span>
+      <div className="flex-1 h-3 rounded-full bg-[var(--border)] overflow-hidden border border-[var(--foreground)]/10">
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${(value / max) * 100}%`, backgroundColor: color }}
+        />
+      </div>
+      <span className="text-[11px] font-['JetBrains_Mono',monospace] text-[var(--foreground)]/60 w-12">
+        {value <= max * 0.2 ? "⚡" : value <= max * 0.5 ? "✅" : "🐢"}
+      </span>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   代码示例常量
+   ───────────────────────────────────────────────────────── */
+const csrCode = `// app/dashboard/page.tsx
+"use client"; // ← 标记为客户端组件，JS 在浏览器端执行
+
+import { useState, useEffect } from "react";
+
+export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 浏览器端发起请求
-    fetch('/api/dashboard')
+    // ⚠️ 页面初始加载时，用户看到的是空白/骨架屏
+    // JS 下载+执行完毕后才开始请求数据
+    fetch("/api/dashboard")
       .then(res => res.json())
-      .then(setData);
+      .then(data => {
+        setData(data);    // ← 拿到数据后才渲染内容
+        setLoading(false);
+      });
   }, []);
 
-  if (!data) return <Loading />;
+  if (loading) return <DashboardSkeleton />;
+  return <StatsGrid data={data} />;
+}`;
 
-  return <Dashboard data={data} />;
-}`,
-    flow: [
-      { step: "1. 浏览器请求", desc: "用户访问 URL" },
-      { step: "2. 返回 HTML 骨架", desc: "仅含 <div id='root'> 和 <script>" },
-      { step: "3. 下载 JS Bundle", desc: "可能数百 KB 至数 MB" },
-      { step: "4. 执行 JavaScript", desc: "React 初始化渲染" },
-      { step: "5. 发起 API 请求", desc: "获取动态数据" },
-      { step: "6. 渲染完整页面", desc: "用户终于看到内容" },
-    ],
-  },
-  {
-    id: "ssr",
-    label: "Server-Side Rendering",
-    title: "SSR",
-    subtitle: "服务端渲染",
-    color: "bg-pink-100",
-    colorVar: "var(--secondary)",
-    shadowVar: "8px 8px 0px 0px var(--secondary)",
-    icon: <Server strokeWidth={2.5} className="w-6 h-6" />,
-    brief:
-      "每次用户请求时，服务器在 Node.js 环境中实时执行 React 组件、获取数据、生成完整 HTML 字符串返回给浏览器，随后浏览器执行 Hydration 使其可交互。",
-    when: "适合需要强 SEO + 内容频繁变化的页面，如电商商品详情、新闻文章",
-    examples: ["电商产品页", "新闻详情页", "用户个人主页"],
-    pros: ["SEO 非常友好", "首屏渲染极快", "动态数据实时反映", "社交分享有完整预览"],
-    cons: ["每次请求都要计算，服务器压力大", "TTFB 受服务器性能影响", "需要 Node.js 服务器环境", "Hydration 阶段仍需加载 JS"],
-    code: `// Next.js SSR — 每次请求执行
-// page.tsx (App Router)
+const ssrCode = `// app/products/[id]/page.tsx
+// 不需要 "use client" — 默认是服务端组件 (Server Component)
+
+async function getProduct(id: string) {
+  const res = await fetch(
+    \`https://api.store.com/products/\${id}\`,
+    { cache: "no-store" } // ← 关键：禁止缓存，每次请求都获取最新数据
+  );
+  if (!res.ok) throw new Error("Product not found");
+  return res.json();
+}
+
 export default async function ProductPage({
   params,
 }: {
   params: { id: string };
 }) {
-  // 每次请求都在服务端执行
-  const product = await fetch(
-    \`https://api.store.com/products/\${params.id}\`,
-    { cache: 'no-store' } // 不缓存，实时获取
-  ).then(res => res.json());
-
+  const product = await getProduct(params.id);
+  // ✅ 服务端完成 HTML 渲染 → 浏览器收到即可见
   return (
     <article>
       <h1>{product.name}</h1>
-      <p>¥{product.price}</p>
+      <p className="text-2xl font-bold">¥{product.price}</p>
+      <p>{product.description}</p>
     </article>
   );
-}`,
-    flow: [
-      { step: "1. 浏览器请求", desc: "用户访问 /product/42" },
-      { step: "2. 服务端执行", desc: "运行 React + fetch 数据" },
-      { step: "3. 生成完整 HTML", desc: "含数据的完整文档" },
-      { step: "4. 返回浏览器", desc: "立即可看到内容" },
-      { step: "5. 加载 JS Bundle", desc: "下载客户端代码" },
-      { step: "6. Hydration", desc: "事件绑定，页面可交互" },
-    ],
-  },
-  {
-    id: "ssg",
-    label: "Static Site Generation",
-    title: "SSG",
-    subtitle: "静态站点生成",
-    color: "bg-yellow-100",
-    colorVar: "var(--tertiary)",
-    shadowVar: "8px 8px 0px 0px var(--tertiary)",
-    icon: <FileText strokeWidth={2.5} className="w-6 h-6" />,
-    brief:
-      "在 构建时 (Build Time) 预渲染所有页面为纯静态 HTML 文件。部署到 CDN 后，用户请求直接获取预生成的 HTML，无需任何服务端计算。",
-    when: "适合内容不经常变动的页面，如博客、文档站、营销着陆页",
-    examples: ["技术博客", "官方文档站", "公司官网", "营销着陆页"],
-    pros: ["访问速度极快（CDN 边缘节点）", "SEO 完美", "服务器零压力", "安全性高（无服务器代码）", "可离线访问"],
-    cons: ["构建时间随页面数增长", "内容更新需重新构建部署", "不适合高度动态内容", "大量页面时构建极慢"],
-    code: `// Next.js SSG — 构建时生成
-// page.tsx
+}`;
+
+const ssgCode = `// app/blog/[slug]/page.tsx
+async function getPost(slug: string) {
+  const res = await fetch(
+    \`https://cms.example.com/posts/\${slug}\`,
+    { cache: "force-cache" } // ← 构建时缓存，后续复用静态文件
+  );
+  return res.json();
+}
+
+// ⚡ next build 时预生成所有路由的静态 HTML
+export async function generateStaticParams() {
+  const posts = await fetch("https://cms.example.com/posts")
+    .then(r => r.json());
+  return posts.map((post: { slug: string }) => ({
+    slug: post.slug, // ← 每个 slug 生成一个 .html 文件
+  }));
+}
+
 export default async function BlogPost({
   params,
 }: {
   params: { slug: string };
 }) {
   const post = await getPost(params.slug);
-  return <Article post={post} />;
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <time>{post.publishedAt}</time>
+      <div dangerouslySetInnerHTML={{ __html: post.content }} />
+    </article>
+  );
+}`;
+
+const isrCode = `// app/products/page.tsx
+async function getProducts() {
+  const res = await fetch("https://api.store.com/products", {
+    next: { revalidate: 60 }, // ← 60 秒后过期
+  });
+  // ↑ 过期后首个请求仍返回旧页面 (stale-while-revalidate)
+  //   同时后台触发重新生成
+  //   后续请求就能拿到最新页面
+  return res.json();
 }
 
-// 生成静态路由
-export async function generateStaticParams() {
-  const posts = await getAllPosts();
-  return posts.map(post => ({
-    slug: post.slug,
-  }));
-}`,
-    flow: [
-      { step: "1. 构建阶段", desc: "next build 执行" },
-      { step: "2. 预取数据", desc: "fetch 所有页面所需数据" },
-      { step: "3. 渲染 HTML", desc: "生成每个页面的 .html" },
-      { step: "4. 部署 CDN", desc: "上传到边缘节点" },
-      { step: "5. 用户请求", desc: "直接从 CDN 获取" },
-      { step: "6. 瞬间加载", desc: "毫秒级首屏展现" },
-    ],
-  },
-  {
-    id: "isr",
-    label: "Incremental Static Regeneration",
-    title: "ISR",
-    subtitle: "增量静态再生",
-    color: "bg-emerald-100",
-    colorVar: "var(--quaternary)",
-    shadowVar: "8px 8px 0px 0px var(--quaternary)",
-    icon: <RefreshCw strokeWidth={2.5} className="w-6 h-6" />,
-    brief:
-      "SSG 的进化版本。在静态生成的基础上，通过设置 `revalidate` 时间窗口，让页面在指定秒数后**自动在后台重新生成**。兼具静态站点的速度和动态内容的新鲜度。",
-    when: "适合内容会变化但实时性要求不极端的场景，如电商首页、排行榜、新闻列表",
-    examples: ["电商首页", "热搜排行榜", "新闻列表页", "产品目录"],
-    pros: ["兼具 SSG 速度和动态数据", "无需全量重新构建", "后台更新对用户透明", "按需再生，资源高效利用"],
-    cons: ["首次再生时可能展示旧数据", "需要 Node.js 运行时", "再生期间有短暂时差", "逻辑理解相对复杂"],
-    code: `// Next.js ISR — 带 revalidation
-// page.tsx
-export default async function HomePage() {
-  // 每 60 秒重新验证一次
-  const products = await fetch(
-    'https://api.store.com/featured',
-    { next: { revalidate: 60 } }
-  ).then(res => res.json());
+export default async function ProductsPage() {
+  const products = await getProducts();
+  const generatedAt = new Date().toLocaleTimeString("zh-CN");
 
   return (
-    <section>
-      <h1>热门推荐</h1>
-      <ProductGrid products={products} />
-    </section>
+    <div>
+      <p className="text-xs text-gray-400">
+        ⏱️ 页面生成时间: {generatedAt}
+      </p>
+      <div className="grid grid-cols-3 gap-4">
+        {products.map((p: { id: string; name: string }) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
+    </div>
   );
+}`;
+
+const streamingCode = `// app/dashboard/page.tsx
+import { Suspense } from "react";
+
+// 快速数据源（~50ms）
+async function UserHeader() {
+  const user = await fetch("/api/user", {
+    cache: "no-store",
+  }).then(r => r.json());
+  return <header>👋 欢迎, {user.name}</header>;
 }
 
-// 按需再生 (On-Demand Revalidation)
-// app/api/revalidate/route.ts
-import { revalidatePath } from 'next/cache';
+// 慢速数据源（~2000ms）
+async function AnalyticsChart() {
+  const data = await fetch("/api/analytics", {
+    cache: "no-store",
+  }).then(r => r.json());
+  return <Chart data={data} />;
+}
 
-export async function POST(request: Request) {
-  const { path } = await request.json();
-  revalidatePath(path);
-  return Response.json({ revalidated: true });
-}`,
-    flow: [
-      { step: "1. 首次构建", desc: "像 SSG 一样生成静态页" },
-      { step: "2. 用户请求", desc: "直接返回缓存的 HTML" },
-      { step: "3. 过期检测", desc: "超过 revalidate 秒数" },
-      { step: "4. 返回旧页面", desc: "用户先看到上一版本" },
-      { step: "5. 后台再生", desc: "服务端悄悄重新渲染" },
-      { step: "6. 替换缓存", desc: "下次请求获得最新版本" },
+export default function Dashboard() {
+  return (
+    <div>
+      {/* ✅ 先渲染，用户立刻看到 */}
+      <UserHeader />
+
+      {/* 慢速部分用 Suspense 包裹，不阻塞上面的渲染 */}
+      <Suspense fallback={<ChartSkeleton />}>
+        <AnalyticsChart />
+      </Suspense>
+      {/* ↑ 浏览器收到 UserHeader 的 HTML 后立即显示
+         AnalyticsChart 加载完成后以流式追加到页面 */}
+    </div>
+  );
+}`;
+
+const parallelCode = `// ❌ 反模式：串行请求 — 总耗时 300+200+150 = 650ms
+async function getPageData_Slow() {
+  const user  = await fetchUser();   // 300ms ← 等完才继续
+  const posts = await fetchPosts();  // 200ms
+  const ads   = await fetchAds();    // 150ms
+  return { user, posts, ads };
+}
+
+// ✅ 正确：并行请求 — 总耗时 = max(300,200,150) = 300ms
+async function getPageData_Fast() {
+  const [user, posts, ads] = await Promise.all([
+    fetchUser(),   // ← 三个请求同时发出
+    fetchPosts(),
+    fetchAds(),
+  ]);
+  return { user, posts, ads };
+}`;
+
+/* ─────────────────────────────────────────────────────────
+   策略数据
+   ───────────────────────────────────────────────────────── */
+type StrategyId = "csr" | "ssr" | "ssg" | "isr";
+
+interface Strategy {
+  id: StrategyId;
+  name: string;
+  fullName: string;
+  color: string;
+  colorLight: string;
+  icon: React.ElementType;
+  analogy: string;
+  steps: { icon: React.ElementType; label: string; timing?: string }[];
+  ttfb: number;
+  fcp: number;
+  tti: number;
+  seo: number;
+  freshness: number;
+  useCase: string;
+  code: string;
+  codeTitle: string;
+  pros: string[];
+  cons: string[];
+}
+
+const STRATEGIES: Record<StrategyId, Strategy> = {
+  csr: {
+    id: "csr",
+    name: "CSR",
+    fullName: "Client-Side Rendering",
+    color: "#8B5CF6",
+    colorLight: "#EDE9FE",
+    icon: MonitorSmartphone,
+    analogy: "给你食材和菜谱，自己动手在餐桌上做",
+    steps: [
+      { icon: FileCode, label: "返回空 HTML 壳" },
+      { icon: Package, label: "下载 JS Bundle", timing: "~1MB" },
+      { icon: Code2, label: "执行 JavaScript" },
+      { icon: Database, label: "请求 API 数据" },
+      { icon: MonitorSmartphone, label: "客户端渲染内容" },
+    ],
+    ttfb: 50,
+    fcp: 1500,
+    tti: 2500,
+    seo: 10,
+    freshness: 100,
+    useCase: "管理后台、用户仪表盘、交互密集型应用",
+    code: csrCode,
+    codeTitle: "dashboard/page.tsx — CSR",
+    pros: [
+      "丰富的客户端交互体验",
+      "页面切换无需整页刷新 (SPA)",
+      "服务器压力极小，可纯静态托管",
+    ],
+    cons: [
+      "首屏白屏 1~3 秒（JS 下载+执行）",
+      "SEO 几乎为零（爬虫拿到空壳）",
+      "JS 禁用时页面完全不可用",
     ],
   },
-];
-
-/* ────────────────────── 对比矩阵数据 ────────────────────── */
-
-const comparisonMatrix = [
-  { dimension: "首屏速度", icon: <Zap strokeWidth={2.5} className="w-4 h-4" />, csr: "慢", ssr: "快", ssg: "极快", isr: "极快" },
-  { dimension: "SEO 友好度", icon: <Search strokeWidth={2.5} className="w-4 h-4" />, csr: "差", ssr: "好", ssg: "极好", isr: "极好" },
-  { dimension: "数据实时性", icon: <Clock strokeWidth={2.5} className="w-4 h-4" />, csr: "实时", ssr: "实时", ssg: "构建时", isr: "近实时" },
-  { dimension: "服务器压力", icon: <Cpu strokeWidth={2.5} className="w-4 h-4" />, csr: "无", ssr: "大", ssg: "无", isr: "小" },
-  { dimension: "构建速度", icon: <Timer strokeWidth={2.5} className="w-4 h-4" />, csr: "快", ssr: "—", ssg: "慢", isr: "渐进" },
-  { dimension: "缓存能力", icon: <HardDrive strokeWidth={2.5} className="w-4 h-4" />, csr: "浏览器", ssr: "较难", ssg: "CDN", isr: "CDN+" },
-  { dimension: "交互复杂度", icon: <Layers strokeWidth={2.5} className="w-4 h-4" />, csr: "极好", ssr: "好", ssg: "好", isr: "好" },
-  { dimension: "适用规模", icon: <Users strokeWidth={2.5} className="w-4 h-4" />, csr: "中小型", ssr: "中型", ssg: "大型", isr: "大型" },
-];
-
-const ratingColors: Record<string, string> = {
-  极快: "text-emerald-700 bg-emerald-50 border-emerald-300",
-  快: "text-emerald-600 bg-emerald-50 border-emerald-200",
-  慢: "text-red-600 bg-red-50 border-red-200",
-  极好: "text-emerald-700 bg-emerald-50 border-emerald-300",
-  好: "text-blue-600 bg-blue-50 border-blue-200",
-  差: "text-red-600 bg-red-50 border-red-200",
-  实时: "text-emerald-700 bg-emerald-50 border-emerald-300",
-  构建时: "text-amber-600 bg-amber-50 border-amber-200",
-  近实时: "text-blue-600 bg-blue-50 border-blue-200",
-  无: "text-emerald-700 bg-emerald-50 border-emerald-300",
-  小: "text-blue-600 bg-blue-50 border-blue-200",
-  大: "text-red-600 bg-red-50 border-red-200",
-  "—": "text-gray-400 bg-gray-50 border-gray-200",
-  渐进: "text-blue-600 bg-blue-50 border-blue-200",
-  较难: "text-amber-600 bg-amber-50 border-amber-200",
-  CDN: "text-emerald-700 bg-emerald-50 border-emerald-300",
-  "CDN+": "text-emerald-700 bg-emerald-50 border-emerald-300",
-  浏览器: "text-blue-600 bg-blue-50 border-blue-200",
-  极大型: "text-emerald-700 bg-emerald-50 border-emerald-300",
-  大型: "text-emerald-700 bg-emerald-50 border-emerald-300",
-  中型: "text-blue-600 bg-blue-50 border-blue-200",
-  中小型: "text-amber-600 bg-amber-50 border-amber-200",
+  ssr: {
+    id: "ssr",
+    name: "SSR",
+    fullName: "Server-Side Rendering",
+    color: "#F472B6",
+    colorLight: "#FCE7F3",
+    icon: Server,
+    analogy: "你点单后厨房现做，等一会儿上热菜",
+    steps: [
+      { icon: Globe, label: "浏览器发起请求" },
+      { icon: Server, label: "服务器接收" },
+      { icon: Database, label: "服务端请求 API", timing: "200~500ms" },
+      { icon: Code2, label: "服务端渲染 HTML" },
+      { icon: Globe, label: "返回完整 HTML" },
+      { icon: Zap, label: "客户端 Hydrate" },
+    ],
+    ttfb: 400,
+    fcp: 500,
+    tti: 900,
+    seo: 95,
+    freshness: 100,
+    useCase: "电商商品页、搜索结果页、个性化内容页",
+    code: ssrCode,
+    codeTitle: "products/[id]/page.tsx — SSR",
+    pros: [
+      "首屏即完整 HTML，SEO 友好",
+      "数据实时，每次请求都是最新",
+      "支持 Streaming SSR 渐进式渲染",
+    ],
+    cons: [
+      "TTFB 受服务器响应速度影响",
+      "每次请求都要服务端计算，服务器压力大",
+      "需要 Node.js 服务器，不能纯 CDN 部署",
+    ],
+  },
+  ssg: {
+    id: "ssg",
+    name: "SSG",
+    fullName: "Static Site Generation",
+    color: "#34D399",
+    colorLight: "#D1FAE5",
+    icon: HardDrive,
+    analogy: "餐厅早上预做好热门菜品，来了直接端上桌",
+    steps: [
+      { icon: Clock, label: "构建时 (Build)", timing: "next build" },
+      { icon: Database, label: "请求所有数据" },
+      { icon: FileCode, label: "生成静态 HTML 文件" },
+      { icon: HardDrive, label: "部署到 CDN" },
+      { icon: Globe, label: "用户请求 → CDN 直接返回", timing: "~50ms" },
+    ],
+    ttfb: 30,
+    fcp: 120,
+    tti: 350,
+    seo: 95,
+    freshness: 10,
+    useCase: "博客、文档站、营销页面、任何不常更新的内容",
+    code: ssgCode,
+    codeTitle: "blog/[slug]/page.tsx — SSG",
+    pros: [
+      "极致速度：TTFB < 50ms，CDN 边缘命中",
+      "零服务器开销，可无限扩展",
+      "天然安全，无服务器运行时漏洞",
+    ],
+    cons: [
+      "内容在构建时冻结，更新需重新部署",
+      "大量页面时构建时间长（1000页 ≈ 5~10分钟）",
+      "不适合个性化/实时数据场景",
+    ],
+  },
+  isr: {
+    id: "isr",
+    name: "ISR",
+    fullName: "Incremental Static Regeneration",
+    color: "#FBBF24",
+    colorLight: "#FEF3C7",
+    icon: RefreshCw,
+    analogy: "自动补货的自助餐——定期更新菜品，不会断供",
+    steps: [
+      { icon: Globe, label: "首次请求" },
+      { icon: HardDrive, label: "CDN 返回缓存页", timing: "~30ms" },
+      { icon: Timer, label: "检查：是否超过 revalidate?" },
+      { icon: RefreshCw, label: "后台静默重新生成", timing: "用户无感" },
+      { icon: HardDrive, label: "新页面替换旧缓存" },
+    ],
+    ttfb: 30,
+    fcp: 120,
+    tti: 350,
+    seo: 95,
+    freshness: 75,
+    useCase: "电商产品列表、新闻首页、排行榜",
+    code: isrCode,
+    codeTitle: "products/page.tsx — ISR",
+    pros: [
+      "兼具 SSG 的速度 + 数据新鲜度",
+      "按需重新生成，无需全量重建",
+      "Stale-While-Revalidate 策略：过期仍可用",
+    ],
+    cons: [
+      "revalidate 期间用户可能看到旧数据",
+      "首次请求（冷启动）仍需等待生成",
+      "分布式部署时缓存一致性需注意",
+    ],
+  },
 };
 
-/* ────────────────────── 子组件 ────────────────────── */
-
-function GeoBadge({
-  children,
-  color,
-  size = "md",
-}: {
-  children: React.ReactNode;
-  color: string;
-  size?: "sm" | "md" | "lg";
-}) {
-  const sizeMap = {
-    sm: "w-8 h-8",
-    md: "w-12 h-12",
-    lg: "w-16 h-16",
-  };
-  return (
-    <div
-      className={`${sizeMap[size]} ${color} rounded-xl border-2 border-[var(--foreground)] flex items-center justify-center`}
-      style={{ boxShadow: "4px 4px 0px 0px var(--foreground)" }}
-    >
-      {children}
-    </div>
+/* ─────────────────────────────────────────────────────────
+   ISR 交互式实验场组件
+   ───────────────────────────────────────────────────────── */
+function ISRPlayground() {
+  const [revalidate, setRevalidate] = useState(15);
+  const [remaining, setRemaining] = useState(15);
+  const [status, setStatus] = useState<"fresh" | "stale" | "regenerating">(
+    "fresh",
   );
-}
+  const [isRunning, setIsRunning] = useState(true);
+  const [visits, setVisits] = useState<
+    { id: number; source: string; time: string }[]
+  >([]);
+  const [visitId, setVisitId] = useState(0);
 
-function FlowStep({
-  step,
-  desc,
-  index,
-  color,
-}: {
-  step: string;
-  desc: string;
-  index: number;
-  color: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 animate-slide" style={{ animationDelay: `${index * 80}ms` }}>
-      <div className="flex flex-col items-center">
-        <div
-          className={`w-10 h-10 rounded-full ${color} border-2 border-[var(--foreground)] flex items-center justify-center font-bold text-sm text-[var(--foreground)]`}
-          style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-        >
-          {index + 1}
-        </div>
-        {index < 5 && (
-          <div className="w-0.5 h-8 bg-[var(--border)] my-1" />
-        )}
-      </div>
-      <div className="pt-1.5">
-        <p
-          className="font-bold text-sm text-[var(--foreground)]"
-          style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-        >
-          {step}
-        </p>
-        <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
-      </div>
-    </div>
+  useEffect(() => {
+    if (!isRunning || status === "regenerating") return;
+    const timer = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev <= 1) {
+          setStatus("stale");
+          setIsRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isRunning, status]);
+
+  const handleRevalidateChange = useCallback(
+    (val: number) => {
+      setRevalidate(val);
+      if (status === "fresh") {
+        setRemaining(val);
+        setIsRunning(true);
+      }
+    },
+    [status],
   );
-}
 
-function CodeBlock({ code, color }: { code: string; color: string }) {
+  const handleVisit = useCallback(() => {
+    const now = new Date().toLocaleTimeString("zh-CN");
+    setVisitId((id) => id + 1);
+    if (status === "stale") {
+      setStatus("regenerating");
+      setVisits((v) => [
+        {
+          id: visitId + 1,
+          source: "旧缓存 (stale) + 后台重新生成中",
+          time: now,
+        },
+        ...v.slice(0, 4),
+      ]);
+      setTimeout(() => {
+        setStatus("fresh");
+        setRemaining(revalidate);
+        setIsRunning(true);
+      }, 2000);
+    } else if (status === "regenerating") {
+      setVisits((v) => [
+        { id: visitId + 1, source: "旧缓存 (后台仍在生成)", time: now },
+        ...v.slice(0, 4),
+      ]);
+    } else {
+      setVisits((v) => [
+        { id: visitId + 1, source: "CDN 缓存命中 ✨", time: now },
+        ...v.slice(0, 4),
+      ]);
+    }
+  }, [status, revalidate, visitId]);
+
+  const handleReset = useCallback(() => {
+    setStatus("fresh");
+    setRemaining(revalidate);
+    setIsRunning(true);
+    setVisits([]);
+    setVisitId(0);
+  }, [revalidate]);
+
+  const pct = (remaining / revalidate) * 100;
+  const circumference = 2 * Math.PI * 52;
+  const strokeDashoffset = circumference - (pct / 100) * circumference;
+
   return (
-    <div
-      className="border-2 border-[var(--foreground)] rounded-xl overflow-hidden"
-      style={{ boxShadow: "6px 6px 0px 0px var(--foreground)" }}
-    >
-      <div
-        className={`${color} px-4 py-2 border-b-2 border-[var(--foreground)] flex items-center gap-2`}
-      >
-        <div className="flex gap-1.5">
-          <div className="w-3 h-3 rounded-full border-2 border-[var(--foreground)] bg-red-400" />
-          <div className="w-3 h-3 rounded-full border-2 border-[var(--foreground)] bg-yellow-400" />
-          <div className="w-3 h-3 rounded-full border-2 border-[var(--foreground)] bg-green-400" />
+    <div className="border-2 border-[var(--foreground)] rounded-3xl bg-[var(--card)] shadow-[8px_8px_0px_0px_var(--tertiary)] overflow-hidden">
+      {/* 标题栏 */}
+      <div className="flex items-center gap-3 px-6 py-4 bg-[#FEF3C7] border-b-2 border-[var(--foreground)]">
+        <div className="w-8 h-8 rounded-lg bg-[var(--tertiary)] border-2 border-[var(--foreground)] flex items-center justify-center">
+          <RefreshCw className="w-4 h-4 text-white" strokeWidth={2.5} />
         </div>
-        <span
-          className="text-xs font-bold text-[var(--foreground)] uppercase tracking-wider"
-          style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-        >
-          code
-        </span>
-      </div>
-      <pre className="p-4 overflow-x-auto text-sm leading-relaxed bg-[#1E293B] text-gray-200">
-        <code className="language-typescript">{code}</code>
-      </pre>
-    </div>
-  );
-}
-
-function StrategyDetailCard({ strategy }: { strategy: StrategyCard }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div
-      className="topic-card p-0 overflow-hidden animate-pop"
-      style={{ animationDelay: "0.2s" }}
-    >
-      {/* 彩色头部 */}
-      <div className={`${strategy.color} p-6 border-b-2 border-[var(--foreground)]`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <GeoBadge color={strategy.color} size="lg">
-              {strategy.icon}
-            </GeoBadge>
-            <div>
-              <p
-                className="text-xs font-bold uppercase tracking-widest text-gray-600"
-                style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-              >
-                {strategy.label}
-              </p>
-              <h2
-                className="text-4xl md:text-5xl font-extrabold text-[var(--foreground)] mt-1"
-                style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-              >
-                {strategy.title}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">{strategy.subtitle}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-6 space-y-6">
-        {/* 描述 */}
-        <p className="text-base leading-relaxed text-[var(--foreground)]">
-          {strategy.brief}
-        </p>
-
-        {/* 适用场景标签 */}
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Lightbulb strokeWidth={2.5} className="w-4 h-4 text-[var(--tertiary)]" />
-            <span
-              className="text-xs font-bold uppercase tracking-widest text-gray-500"
-              style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-            >
-              最佳适用场景
-            </span>
-          </div>
-          <div
-            className="bg-gray-50 rounded-xl border-2 border-[var(--border)] p-4"
-            style={{ boxShadow: "4px 4px 0px 0px var(--border)" }}
-          >
-            <p className="text-sm text-gray-700 mb-3">{strategy.when}</p>
-            <div className="flex flex-wrap gap-2">
-              {strategy.examples.map((ex) => (
-                <span
-                  key={ex}
-                  className={`${strategy.color} text-xs font-bold px-3 py-1.5 rounded-full border-2 border-[var(--foreground)] text-[var(--foreground)]`}
-                >
-                  {ex}
-                </span>
-              ))}
-            </div>
-          </div>
+          <h3 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] text-lg">
+            ISR 实验场
+          </h3>
+          <p className="text-xs text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans']">
+            拖动滑块设置 revalidate 周期，观察页面缓存行为
+          </p>
         </div>
+      </div>
 
-        {/* 执行流程 */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Workflow strokeWidth={2.5} className="w-4 h-4" style={{ color: strategy.colorVar }} />
-            <span
-              className="text-xs font-bold uppercase tracking-widest text-gray-500"
-              style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-            >
-              执行流程
-            </span>
+      <div className="p-6 grid md:grid-cols-[1fr_auto_1fr] gap-6 items-start">
+        {/* 左侧：控制面板 + 圆环计时器 */}
+        <div className="flex flex-col items-center gap-5">
+          {/* Revalidate 滑块 */}
+          <div className="w-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-[var(--foreground)]/70 font-['Plus_Jakarta_Sans']">
+                revalidate
+              </span>
+              <span className="font-['JetBrains_Mono',monospace] text-sm font-bold text-[var(--tertiary)] bg-[var(--tertiary)]/10 px-2 py-0.5 rounded-full border border-[var(--tertiary)]/30">
+                {revalidate}s
+              </span>
+            </div>
+            <input
+              type="range"
+              min={5}
+              max={30}
+              value={revalidate}
+              onChange={(e) => handleRevalidateChange(parseInt(e.target.value))}
+              className="w-full h-2 rounded-full appearance-none bg-[var(--border)] cursor-pointer accent-[var(--tertiary)]"
+            />
           </div>
-          <div className="ml-2">
-            {strategy.flow.map((f, i) => (
-              <FlowStep
-                key={i}
-                step={f.step}
-                desc={f.desc}
-                index={i}
-                color={strategy.color}
+
+          {/* 圆环计时器 */}
+          <div className="relative w-32 h-32">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                fill="none"
+                stroke="var(--border)"
+                strokeWidth="6"
               />
-            ))}
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                fill="none"
+                stroke={
+                  status === "fresh"
+                    ? "#34D399"
+                    : status === "stale"
+                      ? "#EF4444"
+                      : "#FBBF24"
+                }
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                className="transition-all duration-1000 ease-linear"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="font-['JetBrains_Mono',monospace] text-2xl font-bold text-[var(--foreground)]">
+                {remaining}
+              </span>
+              <span className="text-[10px] text-[var(--foreground)]/50 font-bold">
+                秒
+              </span>
+            </div>
+          </div>
+
+          {/* 状态指示 */}
+          <div
+            className={`px-4 py-2 rounded-xl border-2 border-[var(--foreground)] font-bold text-sm font-['Plus_Jakarta_Sans'] shadow-[3px_3px_0px_0px_var(--foreground)] ${
+              status === "fresh"
+                ? "bg-[#D1FAE5] text-[#065F46]"
+                : status === "stale"
+                  ? "bg-[#FEE2E2] text-[#991B1B]"
+                  : "bg-[#FEF3C7] text-[#92400E]"
+            }`}
+          >
+            {status === "fresh" && "✅ 页面新鲜 — 缓存有效"}
+            {status === "stale" && "⚠️ 已过期 — 下次访问触发重新生成"}
+            {status === "regenerating" && "🔄 后台重新生成中..."}
+          </div>
+
+          {/* 操作按钮 */}
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={handleVisit}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[var(--foreground)] text-white rounded-xl border-2 border-[var(--foreground)] font-bold text-sm shadow-[4px_4px_0px_0px_var(--foreground)] hover:shadow-[2px_2px_0px_0px_var(--foreground)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all active:shadow-none active:translate-x-[4px] active:translate-y-[4px]"
+            >
+              <MousePointerClick className="w-4 h-4" strokeWidth={2.5} />
+              访问页面
+            </button>
+            <button
+              onClick={handleReset}
+              className="px-4 py-3 bg-[var(--card)] text-[var(--foreground)] rounded-xl border-2 border-[var(--foreground)] font-bold text-sm shadow-[4px_4px_0px_0px_var(--foreground)] hover:shadow-[2px_2px_0px_0px_var(--foreground)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+            >
+              <RotateCcw className="w-4 h-4" strokeWidth={2.5} />
+            </button>
           </div>
         </div>
 
-        {/* 优缺点 */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <div
-            className="bg-emerald-50 rounded-xl border-2 border-[var(--foreground)] p-5"
-            style={{ boxShadow: "4px 4px 0px 0px var(--quaternary)" }}
-          >
-            <h4
-              className="font-bold text-sm uppercase tracking-wider text-emerald-800 mb-3 flex items-center gap-2"
-              style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-            >
-              <Check strokeWidth={2.5} className="w-4 h-4" />
-              优势
-            </h4>
-            <ul className="space-y-2">
-              {strategy.pros.map((p) => (
-                <li key={p} className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="text-emerald-500 mt-0.5 flex-shrink-0">
-                    <Check strokeWidth={2.5} className="w-3.5 h-3.5" />
-                  </span>
-                  {p}
-                </li>
-              ))}
-            </ul>
-          </div>
+        {/* 分隔线 */}
+        <div className="hidden md:block w-px h-full bg-[var(--border)]" />
 
-          <div
-            className="bg-red-50 rounded-xl border-2 border-[var(--foreground)] p-5"
-            style={{ boxShadow: "4px 4px 0px 0px #f87171" }}
-          >
-            <h4
-              className="font-bold text-sm uppercase tracking-wider text-red-800 mb-3 flex items-center gap-2"
-              style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-            >
-              <AlertTriangle strokeWidth={2.5} className="w-4 h-4" />
-              劣势
-            </h4>
-            <ul className="space-y-2">
-              {strategy.cons.map((c) => (
-                <li key={c} className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="text-red-400 mt-0.5 flex-shrink-0">
-                    <X strokeWidth={2.5} className="w-3.5 h-3.5" />
-                  </span>
-                  {c}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* 代码示例 — 可折叠 */}
+        {/* 右侧：访问日志 */}
         <div>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-2 cursor-pointer group"
-          >
-            <Code2 strokeWidth={2.5} className="w-4 h-4 text-[var(--accent)]" />
-            <span
-              className="text-xs font-bold uppercase tracking-widest text-gray-500 group-hover:text-[var(--accent)] transition-colors"
-              style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-            >
-              代码示例
-            </span>
-            {expanded ? (
-              <ChevronUp strokeWidth={2.5} className="w-4 h-4 text-gray-400" />
-            ) : (
-              <ChevronDown strokeWidth={2.5} className="w-4 h-4 text-gray-400" />
-            )}
-          </button>
-          {expanded && (
-            <div className="mt-4 animate-pop">
-              <CodeBlock code={strategy.code} color={strategy.color} />
+          <h4 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] mb-3 flex items-center gap-2">
+            <Eye className="w-4 h-4" strokeWidth={2.5} />
+            访问日志
+          </h4>
+          {visits.length === 0 ? (
+            <div className="text-center py-10 text-[var(--foreground)]/30">
+              <Users className="w-8 h-8 mx-auto mb-2" strokeWidth={2} />
+              <p className="text-sm font-['Plus_Jakarta_Sans']">
+                点击「访问页面」模拟用户请求
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[280px] overflow-y-auto">
+              {visits.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-start gap-3 p-3 rounded-xl bg-[var(--background)] border border-[var(--border)]"
+                >
+                  <span className="w-6 h-6 rounded-full bg-[var(--foreground)] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                    {v.id}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--foreground)] font-['Plus_Jakarta_Sans']">
+                      {v.source}
+                    </p>
+                    <p className="text-[11px] text-[var(--foreground)]/40 font-['JetBrains_Mono',monospace]">
+                      {v.time}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
+
+          {/* 底部提示 */}
+          <div className="mt-4 p-3 rounded-xl bg-[var(--tertiary)]/5 border border-[var(--tertiary)]/20">
+            <p className="text-xs text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] leading-relaxed">
+              <strong>💡 观察要点：</strong>当倒计时归零后访问页面，ISR
+              会先返回旧缓存（用户无感知），同时后台重新生成。新页面会在下次请求时生效——这就是
+              <strong>Stale-While-Revalidate</strong> 策略。
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ────────────────────── 主页面组件 ────────────────────── */
-
+/* ─────────────────────────────────────────────────────────
+   主页面组件
+   ───────────────────────────────────────────────────────── */
 export default function RenderingStrategiesPage() {
-  const [activeTab, setActiveTab] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<StrategyId>("ssr");
+  const strategy = STRATEGIES[activeTab];
 
   return (
     <div className="bg-dot-grid min-h-screen">
-      {/* ════════════ HERO 区域 ════════════ */}
-      <section className="container relative overflow-hidden">
-        {/* 装饰性 Blob */}
+      {/* ═══════════════════ HERO ═══════════════════ */}
+      <section className="relative overflow-hidden">
+        {/* 装饰 Blob */}
         <div
-          className="absolute -top-20 -right-20 w-72 h-72 bg-[var(--tertiary)] opacity-20 rounded-full blur-3xl"
-          style={{ borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%" }}
+          className="absolute -top-32 -right-32 w-96 h-96 opacity-10 pointer-events-none"
+          style={{
+            backgroundColor: "var(--accent)",
+            borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%",
+          }}
         />
         <div
-          className="absolute -bottom-16 -left-16 w-60 h-60 bg-[var(--accent)] opacity-15 rounded-full blur-3xl"
-          style={{ borderRadius: "30% 70% 50% 50% / 50% 60% 40% 50%" }}
-        />
-        <div
-          className="absolute top-1/3 left-1/4 w-40 h-40 bg-[var(--secondary)] opacity-10 rounded-full blur-2xl"
-          style={{ borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%" }}
+          className="absolute -bottom-20 -left-20 w-64 h-64 opacity-10 pointer-events-none"
+          style={{
+            backgroundColor: "var(--secondary)",
+            borderRadius: "40% 60% 70% 30% / 40% 70% 30% 60%",
+          }}
         />
 
-        <div className="container relative z-10 pt-16 pb-20 md:pt-24 md:pb-28">
+        <div className="container py-20 md:py-28 relative z-10">
           {/* 标签 */}
-          <div className="animate-pop flex items-center gap-3 mb-6">
-            <GeoBadge color="bg-[var(--accent)] bg-purple-100" size="sm">
-              <Gauge strokeWidth={2.5} className="w-4 h-4 text-[var(--accent)]" />
-            </GeoBadge>
-            <span
-              className="text-xs font-bold uppercase tracking-widest text-[var(--accent)]"
-              style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-            >
-              Web 渲染策略 · 深度解析
+          <div className="animate-pop inline-flex items-center gap-2 px-4 py-2 mb-6 bg-[var(--accent)]/10 border-2 border-[var(--accent)] rounded-full shadow-[4px_4px_0px_0px_var(--accent)]">
+            <Layers
+              className="w-4 h-4 text-[var(--accent)]"
+              strokeWidth={2.5}
+            />
+            <span className="text-sm font-bold text-[var(--accent)] font-['Plus_Jakarta_Sans'] uppercase tracking-wider">
+              渲染策略
             </span>
           </div>
 
           {/* 主标题 */}
-          <h1
-            className="animate-pop text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-extrabold text-[var(--foreground)] leading-none mb-6"
-            style={{
-              fontFamily: "var(--font-heading, Outfit, sans-serif)",
-              animationDelay: "0.1s",
-            }}
-          >
-            CSR · SSR
+          <h1 className="animate-pop font-['Outfit',sans-serif] text-4xl md:text-6xl lg:text-7xl font-extrabold text-[var(--foreground)] leading-[1.1] mb-6">
+            CSR · SSR · SSG · ISR
             <br />
-            <span className="relative inline-block">
-              SSG
-              <span
-                className="absolute -bottom-2 left-0 w-full h-3 bg-[var(--tertiary)] opacity-40 -z-10"
-                style={{ borderRadius: "4px" }}
-              />
-            </span>
-            {" · "}
-            <span className="relative inline-block">
-              ISR
-              <span
-                className="absolute -bottom-2 left-0 w-full h-3 bg-[var(--quaternary)] opacity-40 -z-10"
-                style={{ borderRadius: "4px" }}
-              />
-            </span>
+            <span className="text-[var(--accent)]">四大渲染策略全解</span>
           </h1>
 
-          <p
-            className="animate-pop max-w-2xl text-base md:text-lg text-gray-600 leading-relaxed"
-            style={{ animationDelay: "0.2s" }}
-          >
-            现代 Web 框架提供了多种页面渲染策略。理解它们的原理、权衡与适用场景，
-            是每一位前端工程师的核心能力。本文将用<span className="font-bold text-[var(--foreground)]">清晰的图解</span>和
-            <span className="font-bold text-[var(--foreground)]">真实的代码</span>帮你彻底掌握四大渲染方案。
+          {/* 副标题 — 直觉锚点 (L1) */}
+          <p className="animate-slide max-w-2xl text-lg md:text-xl text-[var(--foreground)]/70 font-['Plus_Jakarta_Sans'] leading-relaxed mb-10">
+            选择渲染策略就像选择餐厅的出餐方式：是现做、预做、还是自助？
+            不同场景需要不同的策略，理解它们的差异是构建高性能 Web 应用的基石。
           </p>
 
-          {/* 概览胶囊 */}
-          <div
-            className="animate-pop flex flex-wrap gap-3 mt-8"
-            style={{ animationDelay: "0.3s" }}
-          >
-            {strategies.map((s, i) => (
-              <a
+          {/* 四策略速览卡片 */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slide">
+            {(Object.values(STRATEGIES) as Strategy[]).map((s) => (
+              <div
                 key={s.id}
-                href={`#${s.id}`}
-                className={`${s.color} border-2 border-[var(--foreground)] rounded-full px-5 py-2.5 flex items-center gap-2 text-sm font-bold text-[var(--foreground)] hover:scale-105 transition-transform`}
-                style={{ boxShadow: "4px 4px 0px 0px var(--foreground)" }}
+                className="topic-card p-4 rounded-2xl cursor-pointer transition-transform"
+                onClick={() => setActiveTab(s.id)}
+                style={{
+                  borderColor: activeTab === s.id ? s.color : "var(--border)",
+                  borderWidth: activeTab === s.id ? "3px" : "2px",
+                  backgroundColor:
+                    activeTab === s.id ? s.colorLight : "var(--card)",
+                }}
               >
-                {s.icon}
-                {s.title}
-              </a>
+                <div
+                  className="w-10 h-10 rounded-xl border-2 border-[var(--foreground)] flex items-center justify-center mb-3 shadow-[3px_3px_0px_0px_var(--foreground)]"
+                  style={{ backgroundColor: s.color }}
+                >
+                  <s.icon className="w-5 h-5 text-white" strokeWidth={2.5} />
+                </div>
+                <h3 className="font-['Outfit',sans-serif] font-extrabold text-[var(--foreground)] text-lg">
+                  {s.name}
+                </h3>
+                <p className="text-xs text-[var(--foreground)]/50 font-['Plus_Jakarta_Sans'] mt-0.5">
+                  {s.fullName}
+                </p>
+                <p className="text-sm text-[var(--foreground)]/70 font-['Plus_Jakarta_Sans'] mt-2 leading-snug">
+                  {s.analogy}
+                </p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ════════════ 核心概念解释 ════════════ */}
-      <section className="container pt-16 md:pt-24 pb-16 md:pb-24">
-        <div
-          className="topic-card animate-pop"
-          style={{ animationDelay: "0.1s" }}
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <GeoBadge color="bg-[var(--accent)] bg-purple-100" size="md">
-              <Eye strokeWidth={2.5} className="w-5 h-5 text-[var(--accent)]" />
-            </GeoBadge>
-            <h2
-              className="text-2xl md:text-3xl font-extrabold text-[var(--foreground)]"
-              style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
+      {/* ═══════════════════ L2: 为什么需要？ ═══════════════════ */}
+      <section className="container py-16 md:py-24">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-[var(--secondary)] border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]">
+            <BookOpen className="w-4 h-4 text-white" strokeWidth={2.5} />
+          </div>
+          <span className="text-xs font-bold text-[var(--secondary)] uppercase tracking-widest font-['Plus_Jakarta_Sans']">
+            L2 · 为什么需要？
+          </span>
+        </div>
+        <h2 className="font-['Outfit',sans-serif] text-3xl md:text-4xl font-extrabold text-[var(--foreground)] mb-4">
+          从「纯静态」到「智能混合」的演进之路
+        </h2>
+        <p className="max-w-2xl text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] mb-10 leading-relaxed">
+          Web 渲染不是一道单选题。每种策略都是在
+          <strong>速度、新鲜度、SEO、交互性</strong>
+          之间做权衡。理解痛点，才能选对方案。
+        </p>
+
+        {/* 时间线 */}
+        <div className="relative pl-8 md:pl-12 space-y-8">
+          {/* 连接线 */}
+          <div className="absolute left-3 md:left-5 top-0 bottom-0 w-0.5 bg-[var(--border)]" />
+
+          {[
+            {
+              era: "1990s — 静态时代",
+              title: "纯 HTML 文件",
+              desc: "每个页面都是提前写好的 .html 文件，速度极快但无法动态更新。每次改内容都需要手动上传文件。",
+              color: "var(--quaternary)",
+              icon: FileCode,
+            },
+            {
+              era: "2000s — 服务端时代",
+              title: "PHP/JSP 服务端渲染",
+              desc: "服务器收到请求后执行代码、查数据库、拼 HTML。每次请求都重复整个过程——100 个并发就要算 100 次。",
+              color: "var(--secondary)",
+              icon: Server,
+            },
+            {
+              era: "2010s — 客户端革命",
+              title: "SPA / CSR 大行其道",
+              desc: "React/Vue 兴起，浏览器接管一切。交互丝滑了，但首屏白屏 3 秒、SEO 全军覆没。Lighthouse SEO 评分经常 0/100。",
+              color: "var(--accent)",
+              icon: MonitorSmartphone,
+            },
+            {
+              era: "2020s — 混合渲染",
+              title: "SSG / ISR / Streaming SSR",
+              desc: "Next.js 等框架将选择权交给开发者：同一应用中可以混合使用多种策略，按页面粒度选择最优方案。",
+              color: "var(--tertiary)",
+              icon: Sparkles,
+            },
+          ].map((item, i) => (
+            <div key={i} className="relative flex gap-4 md:gap-6 animate-slide">
+              {/* 时间线节点 */}
+              <div
+                className="absolute -left-5 md:-left-7 w-5 h-5 rounded-full border-2 border-[var(--foreground)] z-10"
+                style={{ backgroundColor: item.color }}
+              />
+              {/* 卡片 */}
+              <div className="topic-card ml-4 md:ml-6 p-5 rounded-2xl flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <item.icon
+                    className="w-5 h-5"
+                    style={{ color: item.color }}
+                    strokeWidth={2.5}
+                  />
+                  <span className="text-xs font-bold text-[var(--foreground)]/50 uppercase tracking-wider font-['Plus_Jakarta_Sans']">
+                    {item.era}
+                  </span>
+                </div>
+                <h3 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] text-xl mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 痛点总结 */}
+        <div className="grid md:grid-cols-3 gap-4 mt-12">
+          {[
+            {
+              icon: Clock,
+              title: "速度痛点",
+              desc: "CSR 白屏 3 秒 = 53% 用户流失（Google 数据）",
+              color: "var(--accent)",
+            },
+            {
+              icon: Search,
+              title: "SEO 痛点",
+              desc: "CSR 页面的搜索引擎可见内容为零字节",
+              color: "var(--secondary)",
+            },
+            {
+              icon: Gauge,
+              title: "成本痛点",
+              desc: "SSR 每请求都需服务端计算，10K QPS = 巨额账单",
+              color: "var(--tertiary)",
+            },
+          ].map((pain, i) => (
+            <div
+              key={i}
+              className="topic-card p-5 rounded-2xl border-l-4"
+              style={{ borderLeftColor: pain.color }}
             >
-              为什么渲染策略很重要？
-            </h2>
+              <pain.icon
+                className="w-6 h-6 mb-3"
+                style={{ color: pain.color }}
+                strokeWidth={2.5}
+              />
+              <h4 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] mb-1">
+                {pain.title}
+              </h4>
+              <p className="text-sm text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans']">
+                {pain.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══════════════════ L3: 核心原理 — 交互式策略探索器 ═══════════════════ */}
+      <section className="container py-16 md:py-24">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-[var(--accent)] border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]">
+            <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
+          </div>
+          <span className="text-xs font-bold text-[var(--accent)] uppercase tracking-widest font-['Plus_Jakarta_Sans']">
+            L3 · 核心原理
+          </span>
+        </div>
+        <h2 className="font-['Outfit',sans-serif] text-3xl md:text-4xl font-extrabold text-[var(--foreground)] mb-4">
+          选择一种策略，观察它的运作方式
+        </h2>
+        <p className="max-w-2xl text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] mb-10 leading-relaxed">
+          点击下方标签切换不同渲染策略，观察数据流、性能指标和对应代码的差异。
+        </p>
+
+        {/* 策略标签栏 */}
+        <div className="flex flex-wrap gap-3 mb-8">
+          {(Object.values(STRATEGIES) as Strategy[]).map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setActiveTab(s.id)}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl border-2 border-[var(--foreground)] font-bold text-sm font-['Outfit',sans-serif] transition-all ${
+                activeTab === s.id
+                  ? "text-white shadow-[4px_4px_0px_0px_var(--foreground)] translate-x-0 translate-y-0"
+                  : "text-[var(--foreground)] bg-[var(--card)] shadow-[4px_4px_0px_0px_var(--border)] hover:shadow-[2px_2px_0px_0px_var(--foreground)] hover:translate-x-[2px] hover:translate-y-[2px]"
+              }`}
+              style={
+                activeTab === s.id ? { backgroundColor: s.color } : undefined
+              }
+            >
+              <s.icon className="w-4 h-4" strokeWidth={2.5} />
+              {s.name}
+              <span className="text-[10px] opacity-70 hidden sm:inline">
+                {s.fullName}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* 策略详情面板 */}
+        <div
+          key={activeTab}
+          className="animate-pop border-2 border-[var(--foreground)] rounded-3xl bg-[var(--card)] overflow-hidden shadow-[8px_8px_0px_0px_var(--foreground)]"
+        >
+          {/* 面板头部 */}
+          <div
+            className="px-6 py-5 border-b-2 border-[var(--foreground)] flex flex-col md:flex-row md:items-center gap-4"
+            style={{ backgroundColor: strategy.colorLight }}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="w-14 h-14 rounded-2xl border-2 border-[var(--foreground)] flex items-center justify-center shadow-[4px_4px_0px_0px_var(--foreground)]"
+                style={{ backgroundColor: strategy.color }}
+              >
+                <strategy.icon
+                  className="w-7 h-7 text-white"
+                  strokeWidth={2.5}
+                />
+              </div>
+              <div>
+                <h3 className="font-['Outfit',sans-serif] font-extrabold text-2xl text-[var(--foreground)]">
+                  {strategy.fullName}
+                </h3>
+                <p className="text-sm text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] flex items-center gap-2">
+                  <span className="text-lg">🍽️</span>
+                  {strategy.analogy}
+                </p>
+              </div>
+            </div>
+            <div className="md:ml-auto px-4 py-2 rounded-xl bg-white/60 border border-[var(--foreground)]/10">
+              <span className="text-xs font-bold text-[var(--foreground)]/50 font-['Plus_Jakarta_Sans']">
+                适用场景
+              </span>
+              <p className="text-sm font-semibold text-[var(--foreground)] font-['Plus_Jakarta_Sans']">
+                {strategy.useCase}
+              </p>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="p-6 space-y-8">
+            {/* 流程图 */}
+            <div>
+              <h4 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] mb-4 flex items-center gap-2">
+                <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
+                数据流
+              </h4>
+              <div className="overflow-x-auto pb-2">
+                <div className="flex items-center gap-0 min-w-max px-2">
+                  {strategy.steps.map((step, i) => (
+                    <div key={i} className="flex items-center">
+                      <FlowStep
+                        icon={step.icon}
+                        label={step.label}
+                        color={strategy.color}
+                        timing={step.timing}
+                      />
+                      {i < strategy.steps.length - 1 && (
+                        <FlowArrow color={strategy.color} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 性能指标 */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] mb-4 flex items-center gap-2">
+                  <Gauge className="w-4 h-4" strokeWidth={2.5} />
+                  性能指标
+                </h4>
+                <div className="space-y-3">
+                  <MetricBar
+                    value={strategy.ttfb}
+                    max={500}
+                    color={strategy.color}
+                    label="TTFB"
+                  />
+                  <MetricBar
+                    value={strategy.fcp}
+                    max={2000}
+                    color={strategy.color}
+                    label="FCP"
+                  />
+                  <MetricBar
+                    value={strategy.tti}
+                    max={3000}
+                    color={strategy.color}
+                    label="TTI"
+                  />
+                </div>
+                <div className="flex gap-4 mt-3 text-[10px] text-[var(--foreground)]/40 font-['Plus_Jakarta_Sans']">
+                  <span>TTFB = 首字节时间</span>
+                  <span>FCP = 首次内容绘制</span>
+                  <span>TTI = 可交互时间</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] mb-4 flex items-center gap-2">
+                  <Shield className="w-4 h-4" strokeWidth={2.5} />
+                  关键评分
+                </h4>
+                <div className="space-y-3">
+                  <MetricBar
+                    value={strategy.seo}
+                    max={100}
+                    color={strategy.color}
+                    label="SEO"
+                  />
+                  <MetricBar
+                    value={strategy.freshness}
+                    max={100}
+                    color={strategy.color}
+                    label="新鲜度"
+                  />
+                </div>
+                {/* 优缺点 */}
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-[var(--quaternary)] uppercase tracking-wider font-['Plus_Jakarta_Sans']">
+                      ✅ 优势
+                    </span>
+                    {strategy.pros.map((p, i) => (
+                      <p
+                        key={i}
+                        className="text-xs text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] flex items-start gap-1"
+                      >
+                        <CheckCircle2
+                          className="w-3 h-3 text-[var(--quaternary)] mt-0.5 flex-shrink-0"
+                          strokeWidth={2.5}
+                        />
+                        {p}
+                      </p>
+                    ))}
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-[var(--secondary)] uppercase tracking-wider font-['Plus_Jakarta_Sans']">
+                      ⚠️ 劣势
+                    </span>
+                    {strategy.cons.map((c, i) => (
+                      <p
+                        key={i}
+                        className="text-xs text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] flex items-start gap-1"
+                      >
+                        <AlertTriangle
+                          className="w-3 h-3 text-[var(--secondary)] mt-0.5 flex-shrink-0"
+                          strokeWidth={2.5}
+                        />
+                        {c}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 代码示例 */}
+            <div>
+              <h4 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] mb-4 flex items-center gap-2">
+                <Code2 className="w-4 h-4" strokeWidth={2.5} />
+                Next.js 实现
+              </h4>
+              <CodeBlock
+                code={strategy.code}
+                language="typescript"
+                title={strategy.codeTitle}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ L3 交互实验场: ISR Playground ═══════════════════ */}
+      <section className="container py-16 md:py-24">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-[var(--tertiary)] border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]">
+            <MousePointerClick
+              className="w-4 h-4 text-white"
+              strokeWidth={2.5}
+            />
+          </div>
+          <span className="text-xs font-bold text-[var(--tertiary)] uppercase tracking-widest font-['Plus_Jakarta_Sans']">
+            交互实验场
+          </span>
+        </div>
+        <h2 className="font-['Outfit',sans-serif] text-3xl md:text-4xl font-extrabold text-[var(--foreground)] mb-4">
+          亲手体验 ISR 的缓存与重新生成
+        </h2>
+        <p className="max-w-2xl text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] mb-10 leading-relaxed">
+          调整{" "}
+          <code className="font-['JetBrains_Mono',monospace] text-sm bg-[var(--tertiary)]/10 px-1.5 py-0.5 rounded border border-[var(--tertiary)]/30 text-[var(--tertiary)]">
+            revalidate
+          </code>{" "}
+          参数，观察缓存过期和后台重新生成的全过程。
+        </p>
+
+        <ISRPlayground />
+      </section>
+
+      {/* ═══════════════════ L4: 代码实战 ═══════════════════ */}
+      <section className="container py-16 md:py-24">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-[var(--quaternary)] border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]">
+            <Code2 className="w-4 h-4 text-white" strokeWidth={2.5} />
+          </div>
+          <span className="text-xs font-bold text-[var(--quaternary)] uppercase tracking-widest font-['Plus_Jakarta_Sans']">
+            L4 · 代码实战
+          </span>
+        </div>
+        <h2 className="font-['Outfit',sans-serif] text-3xl md:text-4xl font-extrabold text-[var(--foreground)] mb-4">
+          进阶模式：Streaming & 并行请求
+        </h2>
+        <p className="max-w-2xl text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] mb-10 leading-relaxed">
+          掌握基础策略后，这两个模式能让你的 SSR 性能再上一个台阶。
+        </p>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Streaming SSR */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[var(--secondary)] border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]">
+                <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <h3 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] text-xl">
+                  Streaming SSR
+                </h3>
+                <p className="text-xs text-[var(--foreground)]/50 font-['Plus_Jakarta_Sans']">
+                  用 Suspense 实现渐进式渲染
+                </p>
+              </div>
+            </div>
+            <div className="topic-card p-4 rounded-2xl space-y-2">
+              <p className="text-sm text-[var(--foreground)]/70 font-['Plus_Jakarta_Sans'] leading-relaxed">
+                <strong>核心思路：</strong>将慢速数据源用{" "}
+                <code className="font-['JetBrains_Mono',monospace] text-xs bg-[var(--secondary)]/10 px-1 rounded text-[var(--secondary)]">
+                  {"<Suspense>"}
+                </code>{" "}
+                包裹。快速部分（如用户头像）先发送到浏览器，慢速部分（如分析图表）完成后再流式追加。
+              </p>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="p-3 rounded-xl bg-[#FEE2E2] border border-red-200">
+                  <p className="text-xs font-bold text-red-600 font-['Plus_Jakarta_Sans'] mb-1">
+                    ❌ 无 Streaming
+                  </p>
+                  <p className="text-xs text-red-500/70 font-['JetBrains_Mono',monospace]">
+                    TTFB = 50 + 2000 = 2050ms
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-[#D1FAE5] border border-green-200">
+                  <p className="text-xs font-bold text-green-700 font-['Plus_Jakarta_Sans'] mb-1">
+                    ✅ 有 Streaming
+                  </p>
+                  <p className="text-xs text-green-600/70 font-['JetBrains_Mono',monospace]">
+                    TTFB = 50ms（图表后到）
+                  </p>
+                </div>
+              </div>
+            </div>
+            <CodeBlock
+              code={streamingCode}
+              language="tsx"
+              title="dashboard/page.tsx — Streaming SSR"
+            />
+          </div>
+
+          {/* Parallel Fetching */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[var(--accent)] border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]">
+                <Layers className="w-4 h-4 text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <h3 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] text-xl">
+                  并行数据获取
+                </h3>
+                <p className="text-xs text-[var(--foreground)]/50 font-['Plus_Jakarta_Sans']">
+                  用 Promise.all 消灭串行等待
+                </p>
+              </div>
+            </div>
+            <div className="topic-card p-4 rounded-2xl space-y-2">
+              <p className="text-sm text-[var(--foreground)]/70 font-['Plus_Jakarta_Sans'] leading-relaxed">
+                <strong>核心问题：</strong>在服务端组件中写多个{" "}
+                <code className="font-['JetBrains_Mono',monospace] text-xs bg-[var(--accent)]/10 px-1 rounded text-[var(--accent)]">
+                  await fetch()
+                </code>{" "}
+                时，如果顺序执行（串行），总耗时是所有请求之和。改为并行后，总耗时
+                = 最慢请求的时间。
+              </p>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="p-3 rounded-xl bg-[#FEE2E2] border border-red-200">
+                  <p className="text-xs font-bold text-red-600 font-['Plus_Jakarta_Sans'] mb-1">
+                    ❌ 串行
+                  </p>
+                  <p className="text-xs text-red-500/70 font-['JetBrains_Mono',monospace]">
+                    300 + 200 + 150 = 650ms
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-[#D1FAE5] border border-green-200">
+                  <p className="text-xs font-bold text-green-700 font-['Plus_Jakarta_Sans'] mb-1">
+                    ✅ 并行
+                  </p>
+                  <p className="text-xs text-green-600/70 font-['JetBrains_Mono',monospace]">
+                    max(300,200,150) = 300ms
+                  </p>
+                </div>
+              </div>
+            </div>
+            <CodeBlock
+              code={parallelCode}
+              language="typescript"
+              title="串行 vs 并行数据获取"
+            />
+          </div>
+        </div>
+
+        {/* Next.js Fetch API 速查 */}
+        <div className="mt-10 topic-card p-6 rounded-2xl">
+          <h3 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] text-xl mb-4 flex items-center gap-2">
+            <FileCode
+              className="w-5 h-5 text-[var(--accent)]"
+              strokeWidth={2.5}
+            />
+            Next.js App Router — Fetch 选项速查
+          </h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
-                icon: <TrendingUp strokeWidth={2.5} className="w-5 h-5" />,
-                color: "bg-purple-100",
-                title: "性能体验",
-                desc: "首屏加载时间直接影响用户留存率。每慢 100ms，转化率下降 7%。",
+                label: "SSR",
+                option: 'cache: "no-store"',
+                desc: "每次请求都获取最新数据",
+                color: "var(--secondary)",
               },
               {
-                icon: <Search strokeWidth={2.5} className="w-5 h-5" />,
-                color: "bg-yellow-100",
-                title: "搜索引擎优化",
-                desc: "爬虫能否读取你的页面内容，取决于 HTML 是否在首次响应中包含完整数据。",
+                label: "SSG",
+                option: 'cache: "force-cache"',
+                desc: "构建时缓存，后续复用",
+                color: "var(--quaternary)",
               },
               {
-                icon: <Globe strokeWidth={2.5} className="w-5 h-5" />,
-                color: "bg-pink-100",
-                title: "基础设施成本",
-                desc: "不同的渲染策略对服务器、CDN、构建工具的要求截然不同，直接影响运营成本。",
+                label: "ISR",
+                option: "next: { revalidate: 60 }",
+                desc: "60 秒后过期，后台重新生成",
+                color: "var(--tertiary)",
+              },
+              {
+                label: "CSR",
+                option: '"use client" + useEffect',
+                desc: "浏览器端发起请求",
+                color: "var(--accent)",
               },
             ].map((item, i) => (
               <div
                 key={i}
-                className={`${item.color} rounded-xl border-2 border-[var(--foreground)] p-5 animate-slide`}
+                className="p-4 rounded-xl border-2 border-[var(--foreground)] shadow-[4px_4px_0px_0px_var(--foreground)]"
                 style={{
-                  boxShadow: "6px 6px 0px 0px var(--foreground)",
-                  animationDelay: `${i * 100 + 200}ms`,
+                  backgroundColor: `color-mix(in srgb, ${item.color} 8%, white)`,
                 }}
               >
-                <GeoBadge color={item.color} size="sm">
-                  {item.icon}
-                </GeoBadge>
-                <h3
-                  className="font-bold text-lg text-[var(--foreground)] mt-3 mb-2"
-                  style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
+                <span
+                  className="inline-block px-2 py-0.5 rounded-md text-white text-xs font-bold mb-2 border border-white/20"
+                  style={{ backgroundColor: item.color }}
                 >
-                  {item.title}
-                </h3>
-                <p className="text-sm text-gray-600 leading-relaxed">
+                  {item.label}
+                </span>
+                <pre className="bg-[var(--foreground)] text-[var(--background)] text-xs p-2 rounded-lg font-['JetBrains_Mono',monospace] mb-2 overflow-x-auto">
+                  {item.option}
+                </pre>
+                <p className="text-xs text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans']">
                   {item.desc}
                 </p>
               </div>
@@ -690,500 +1371,431 @@ export default function RenderingStrategiesPage() {
         </div>
       </section>
 
-      {/* ════════════ Bento 概览卡片 ════════════ */}
-      <section className="container pb-16 md:pb-24">
-        <div className="flex items-center gap-3 mb-8">
-          <GeoBadge color="bg-yellow-100" size="md">
-            <Layers strokeWidth={2.5} className="w-5 h-5 text-[var(--tertiary)]" />
-          </GeoBadge>
-          <h2
-            className="text-2xl md:text-3xl font-extrabold text-[var(--foreground)]"
-            style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-          >
-            四大渲染策略一览
-          </h2>
+      {/* ═══════════════════ L5: 工程全景 ═══════════════════ */}
+      <section className="container py-16 md:py-24">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-[var(--foreground)] border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]">
+            <Shield className="w-4 h-4 text-white" strokeWidth={2.5} />
+          </div>
+          <span className="text-xs font-bold text-[var(--foreground)] uppercase tracking-widest font-['Plus_Jakarta_Sans']">
+            L5 · 工程全景
+          </span>
         </div>
+        <h2 className="font-['Outfit',sans-serif] text-3xl md:text-4xl font-extrabold text-[var(--foreground)] mb-4">
+          决策框架与生产级考量
+        </h2>
+        <p className="max-w-2xl text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] mb-10 leading-relaxed">
+          掌握「什么时候用什么」比「怎么用」更重要。
+        </p>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {strategies.map((s, i) => (
-            <a
-              key={s.id}
-              href={`#${s.id}`}
-              className="topic-card p-5 animate-pop group cursor-pointer flex flex-col"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {/* 图标 + 标签 */}
-              <div className="flex items-center justify-between mb-4">
-                <GeoBadge color={s.color} size="md">
-                  {s.icon}
-                </GeoBadge>
-                <span
-                  className="text-[10px] font-bold uppercase tracking-widest text-gray-400"
-                  style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-                >
-                  {s.id}
-                </span>
-              </div>
-
-              <h3
-                className="text-2xl font-extrabold text-[var(--foreground)]"
-                style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-              >
-                {s.title}
-              </h3>
-              <p
-                className="text-xs font-bold text-gray-500 mb-3"
-                style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-              >
-                {s.subtitle}
+        {/* ── 决策树 ── */}
+        <div className="topic-card p-6 md:p-8 rounded-3xl mb-10">
+          <h3 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] text-xl mb-6 flex items-center gap-2">
+            <Lightbulb
+              className="w-5 h-5 text-[var(--tertiary)]"
+              strokeWidth={2.5}
+            />
+            渲染策略决策树
+          </h3>
+          <div className="space-y-4 font-['Plus_Jakarta_Sans'] text-sm">
+            {/* Q1 */}
+            <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <p className="font-bold text-[var(--foreground)] mb-3">
+                🔍 你的页面需要被搜索引擎收录吗？
               </p>
-
-              <p className="text-sm text-gray-600 leading-relaxed flex-1 line-clamp-3">
-                {s.brief.slice(0, 80)}...
-              </p>
-
-              <div className="mt-4 flex items-center gap-1 text-[var(--accent)] text-sm font-bold group-hover:gap-2 transition-all">
-                深入了解
-                <ArrowRight strokeWidth={2.5} className="w-4 h-4" />
-              </div>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      {/* ════════════ 详细解析区域 ════════════ */}
-      <section className="container pb-16 md:pb-24">
-        <div className="flex items-center gap-3 mb-8">
-          <GeoBadge color="bg-pink-100" size="md">
-            <Code2 strokeWidth={2.5} className="w-5 h-5 text-[var(--secondary)]" />
-          </GeoBadge>
-          <h2
-            className="text-2xl md:text-3xl font-extrabold text-[var(--foreground)]"
-            style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-          >
-            深度解析
-          </h2>
-        </div>
-
-        {/* Tab 导航 */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          <button
-            onClick={() => setActiveTab("all")}
-            className={`px-4 py-2 rounded-full text-sm font-bold border-2 border-[var(--foreground)] transition-all ${
-              activeTab === "all"
-                ? "bg-[var(--foreground)] text-white"
-                : "bg-white text-[var(--foreground)] hover:bg-gray-100"
-            }`}
-            style={{ boxShadow: "4px 4px 0px 0px var(--foreground)" }}
-          >
-            全部显示
-          </button>
-          {strategies.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setActiveTab(s.id)}
-              className={`px-4 py-2 rounded-full text-sm font-bold border-2 border-[var(--foreground)] transition-all flex items-center gap-2 ${
-                activeTab === s.id
-                  ? `${s.color} text-[var(--foreground)]`
-                  : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-              style={{ boxShadow: "4px 4px 0px 0px var(--foreground)" }}
-            >
-              {s.icon}
-              {s.title}
-            </button>
-          ))}
-        </div>
-
-        {/* 卡片列表 */}
-        <div className="space-y-8">
-          {strategies
-            .filter((s) => activeTab === "all" || activeTab === s.id)
-            .map((s) => (
-              <div key={s.id} id={s.id}>
-                <StrategyDetailCard strategy={s} />
-              </div>
-            ))}
-        </div>
-      </section>
-
-      {/* ════════════ 对比矩阵 ════════════ */}
-      <section className="container pb-16 md:pb-24">
-        <div className="flex items-center gap-3 mb-8">
-          <GeoBadge color="bg-emerald-100" size="md">
-            <Database strokeWidth={2.5} className="w-5 h-5 text-[var(--quaternary)]" />
-          </GeoBadge>
-          <h2
-            className="text-2xl md:text-3xl font-extrabold text-[var(--foreground)]"
-            style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-          >
-            全维度对比矩阵
-          </h2>
-        </div>
-
-        {/* 桌面端表格 */}
-        <div
-          className="hidden md:block topic-card overflow-hidden animate-pop"
-          style={{ boxShadow: "8px 8px 0px 0px var(--foreground)" }}
-        >
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[var(--foreground)] text-white">
-                <th
-                  className="text-left px-6 py-4 font-bold uppercase tracking-wider text-xs"
-                  style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-                >
-                  评估维度
-                </th>
-                {strategies.map((s) => (
-                  <th
-                    key={s.id}
-                    className="text-center px-4 py-4"
-                  >
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="text-xl">{s.title}</span>
-                      <span className="text-[10px] opacity-60 uppercase tracking-widest">
-                        {s.subtitle}
+              <div className="grid md:grid-cols-2 gap-3 ml-4">
+                {/* Yes */}
+                <div className="p-3 rounded-lg bg-[#D1FAE5] border border-green-200">
+                  <p className="font-bold text-green-700 mb-2">✅ 需要 SEO</p>
+                  <p className="text-[var(--foreground)]/70 mb-2">
+                    数据多久更新一次？
+                  </p>
+                  <div className="space-y-2 ml-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs">⚡</span>
+                      <span>
+                        <strong>实时 / 每次请求最新</strong> →{" "}
+                        <span className="px-2 py-0.5 rounded-md bg-[var(--secondary)] text-white text-xs font-bold">
+                          SSR
+                        </span>
+                        <span className="text-[var(--foreground)]/50 text-xs">
+                          {" "}
+                          + Streaming
+                        </span>
                       </span>
                     </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {comparisonMatrix.map((row, i) => (
-                <tr
-                  key={row.dimension}
-                  className={`${i % 2 === 0 ? "bg-white" : "bg-gray-50"} border-b border-[var(--border)] last:border-b-0 hover:bg-yellow-50 transition-colors`}
-                >
-                  <td className="px-6 py-4 font-medium text-[var(--foreground)] flex items-center gap-2">
-                    <span className="text-gray-400">{row.icon}</span>
-                    {row.dimension}
-                  </td>
-                  {(["csr", "ssr", "ssg", "isr"] as const).map((key) => (
-                    <td key={key} className="px-4 py-4 text-center">
-                      <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold border-2 ${
-                          ratingColors[row[key]] || "text-gray-500 bg-gray-50 border-gray-200"
-                        }`}
-                      >
-                        {row[key]}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs">🕐</span>
+                      <span>
+                        <strong>分钟/小时间隔</strong> →{" "}
+                        <span className="px-2 py-0.5 rounded-md bg-[var(--tertiary)] text-[var(--foreground)] text-xs font-bold">
+                          ISR
+                        </span>
                       </span>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* 移动端卡片形式 */}
-        <div className="md:hidden space-y-4">
-          {comparisonMatrix.map((row, i) => (
-            <div
-              key={row.dimension}
-              className="topic-card p-4 animate-slide"
-              style={{ animationDelay: `${i * 60}ms` }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                {row.icon}
-                <span className="font-bold text-sm text-[var(--foreground)]">
-                  {row.dimension}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {strategies.map((s) => (
-                  <div
-                    key={s.id}
-                    className={`${s.color} rounded-lg border-2 border-[var(--border)] px-3 py-2 text-center`}
-                  >
-                    <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">
-                      {s.title}
-                    </p>
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border-2 ${
-                        ratingColors[
-                          row[s.id as keyof typeof row] as string
-                        ] || ""
-                      }`}
-                    >
-                      {row[s.id as keyof typeof row] as string}
-                    </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs">📄</span>
+                      <span>
+                        <strong>很少 / 从不更新</strong> →{" "}
+                        <span className="px-2 py-0.5 rounded-md bg-[var(--quaternary)] text-white text-xs font-bold">
+                          SSG
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                ))}
+                </div>
+                {/* No */}
+                <div className="p-3 rounded-lg bg-[#EDE9FE] border border-purple-200">
+                  <p className="font-bold text-purple-700 mb-2">
+                    ❌ 不需要 SEO
+                  </p>
+                  <p className="text-[var(--foreground)]/70 mb-2">
+                    页面交互需求如何？
+                  </p>
+                  <div className="space-y-2 ml-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs">🎯</span>
+                      <span>
+                        <strong>交互密集</strong>（仪表盘、编辑器）→{" "}
+                        <span className="px-2 py-0.5 rounded-md bg-[var(--accent)] text-white text-xs font-bold">
+                          CSR
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs">📊</span>
+                      <span>
+                        <strong>需要最新数据</strong>（实时面板）→{" "}
+                        <span className="px-2 py-0.5 rounded-md bg-[var(--secondary)] text-white text-xs font-bold">
+                          SSR
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ════════════ 决策指南 ════════════ */}
-      <section className="container pb-16 md:pb-24">
-        <div className="flex items-center gap-3 mb-8">
-          <GeoBadge color="bg-yellow-100" size="md">
-            <Lightbulb strokeWidth={2.5} className="w-5 h-5 text-[var(--tertiary)]" />
-          </GeoBadge>
-          <h2
-            className="text-2xl md:text-3xl font-extrabold text-[var(--foreground)]"
-            style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-          >
-            如何选择？决策指南
-          </h2>
-        </div>
-
-        {/* 决策流程图 */}
-        <div
-          className="topic-card p-6 md:p-10 animate-pop"
-          style={{ boxShadow: "8px 8px 0px 0px var(--foreground)" }}
-        >
-          <div className="space-y-6">
-            {[
-              {
-                question: "你的页面需要被搜索引擎收录吗？",
-                yes: {
-                  next: "数据变化频率有多高？",
-                  followUp: [
-                    {
-                      label: "几乎不变（博客、文档）",
-                      answer: "SSG",
-                      color: "bg-yellow-100",
-                      icon: <FileText strokeWidth={2.5} className="w-4 h-4" />,
-                    },
-                    {
-                      label: "偶尔变化（每小时/每天）",
-                      answer: "ISR",
-                      color: "bg-emerald-100",
-                      icon: <RefreshCw strokeWidth={2.5} className="w-4 h-4" />,
-                    },
-                    {
-                      label: "实时变化（每次请求不同）",
-                      answer: "SSR",
-                      color: "bg-pink-100",
-                      icon: <Server strokeWidth={2.5} className="w-4 h-4" />,
-                    },
-                  ],
-                },
-                no: {
-                  answer: "CSR",
-                  color: "bg-purple-100",
-                  icon: <Monitor strokeWidth={2.5} className="w-4 h-4" />,
-                  reason: "如管理后台、内部工具，SEO 不重要，追求极致交互体验",
-                },
-              },
-            ].map((decision, i) => (
-              <div key={i} className="space-y-4">
-                {/* 问题节点 */}
-                <div
-                  className="bg-[var(--accent)] bg-purple-100 border-2 border-[var(--foreground)] rounded-2xl p-5 text-center"
-                  style={{ boxShadow: "6px 6px 0px 0px var(--foreground)" }}
-                >
-                  <p
-                    className="text-lg md:text-xl font-extrabold text-[var(--foreground)]"
-                    style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-                  >
-                    {decision.question}
-                  </p>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* 否 → CSR */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-red-100 border-2 border-[var(--foreground)] flex items-center justify-center">
-                        <X strokeWidth={2.5} className="w-4 h-4 text-red-500" />
-                      </div>
-                      <span className="font-bold text-sm text-gray-600">不需要 SEO</span>
-                    </div>
-                    <div
-                      className={`${decision.no.color} border-2 border-[var(--foreground)] rounded-xl p-5`}
-                      style={{ boxShadow: "6px 6px 0px 0px var(--foreground)" }}
-                    >
-                      <div className="flex items-center gap-3 mb-2">
-                        <GeoBadge color={decision.no.color} size="sm">
-                          {decision.no.icon}
-                        </GeoBadge>
-                        <span
-                          className="text-3xl font-extrabold text-[var(--foreground)]"
-                          style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-                        >
-                          → {decision.no.answer}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-2">
-                        {decision.no.reason}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 是 → 进一步选择 */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-[var(--foreground)] flex items-center justify-center">
-                        <Check strokeWidth={2.5} className="w-4 h-4 text-emerald-500" />
-                      </div>
-                      <span className="font-bold text-sm text-gray-600">
-                        需要 SEO
-                      </span>
-                    </div>
-
-                    <div
-                      className="bg-blue-50 border-2 border-[var(--foreground)] rounded-xl p-5"
-                      style={{ boxShadow: "6px 6px 0px 0px var(--foreground)" }}
-                    >
-                      <p
-                        className="font-bold text-sm text-[var(--foreground)] mb-4"
-                        style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-                      >
-                        {decision.yes.next}
-                      </p>
-                      <div className="space-y-3">
-                        {decision.yes.followUp.map((f) => (
-                          <div
-                            key={f.answer}
-                            className={`${f.color} border-2 border-[var(--foreground)] rounded-lg px-4 py-3 flex items-center justify-between`}
-                            style={{ boxShadow: "4px 4px 0px 0px var(--foreground)" }}
-                          >
-                            <div>
-                              <span className="text-sm font-medium text-gray-700">
-                                {f.label}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {f.icon}
-                              <span
-                                className="text-lg font-extrabold text-[var(--foreground)]"
-                                style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-                              >
-                                {f.answer}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <p className="text-xs text-[var(--foreground)]/40 italic">
+              💡 同一应用中可以混合使用多种策略。例如：首页用 ISR、商品详情用
+              SSR、用户后台用 CSR。
+            </p>
           </div>
         </div>
-      </section>
 
-      {/* ════════════ 关键洞察 & 总结 ════════════ */}
-      <section className="container pb-16 md:pb-24">
-        <div className="flex items-center gap-3 mb-8">
-          <GeoBadge color="bg-purple-100" size="md">
-            <TrendingUp strokeWidth={2.5} className="w-5 h-5 text-[var(--accent)]" />
-          </GeoBadge>
-          <h2
-            className="text-2xl md:text-3xl font-extrabold text-[var(--foreground)]"
-            style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-          >
-            关键洞察
-          </h2>
+        {/* ── 性能对比表 ── */}
+        <div className="topic-card rounded-3xl overflow-hidden mb-10">
+          <div className="px-6 py-4 bg-[var(--foreground)] text-white">
+            <h3 className="font-['Outfit',sans-serif] font-bold text-lg flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" strokeWidth={2.5} />
+              性能与特性对比矩阵
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm font-['Plus_Jakarta_Sans']">
+              <thead>
+                <tr className="border-b-2 border-[var(--foreground)]">
+                  <th className="p-4 text-left font-bold text-[var(--foreground)]">
+                    指标
+                  </th>
+                  {(Object.values(STRATEGIES) as Strategy[]).map((s) => (
+                    <th
+                      key={s.id}
+                      className="p-4 text-center font-bold"
+                      style={{ color: s.color }}
+                    >
+                      <div className="flex items-center justify-center gap-1.5">
+                        <s.icon className="w-4 h-4" strokeWidth={2.5} />
+                        {s.name}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  {
+                    metric: "TTFB",
+                    values: ["~50ms ⚡", "200~500ms", "~30ms ⚡", "~30ms ⚡"],
+                  },
+                  {
+                    metric: "FCP",
+                    values: ["1~3s 🐢", "300~800ms", "100~300ms", "100~300ms"],
+                  },
+                  {
+                    metric: "TTI",
+                    values: ["2~5s 🐢", "500~1000ms", "200~500ms", "200~500ms"],
+                  },
+                  {
+                    metric: "SEO",
+                    values: ["❌ 差", "✅ 优秀", "✅ 优秀", "✅ 优秀"],
+                  },
+                  {
+                    metric: "数据新鲜度",
+                    values: ["✅ 实时", "✅ 实时", "❌ 构建时", "✅ 可配置"],
+                  },
+                  {
+                    metric: "服务器成本",
+                    values: ["✅ 低", "❌ 高", "✅ 零", "✅ 极低"],
+                  },
+                  {
+                    metric: "Hydration",
+                    values: ["完整客户端", "需要", "需要", "需要"],
+                  },
+                ].map((row, i) => (
+                  <tr
+                    key={i}
+                    className="border-b border-[var(--border)] hover:bg-[var(--background)] transition-colors"
+                  >
+                    <td className="p-4 font-bold text-[var(--foreground)]">
+                      {row.metric}
+                    </td>
+                    {row.values.map((v, j) => (
+                      <td
+                        key={j}
+                        className="p-4 text-center text-[var(--foreground)]/70 text-xs"
+                      >
+                        {v}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-5">
+        {/* ── Anti-Patterns ── */}
+        <h3 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] text-xl mb-6 flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5 text-red-500" strokeWidth={2.5} />
+          常见陷阱与反模式
+        </h3>
+        <div className="grid md:grid-cols-2 gap-4 mb-10">
           {[
             {
-              num: "01",
-              color: "bg-purple-100",
-              shadow: "8px 8px 0px 0px var(--accent)",
-              title: "不是非此即彼",
-              desc: "在同一个 Next.js 应用中，你可以对不同路由使用不同的渲染策略。产品列表用 ISR，用户中心用 CSR，博客用 SSG。",
+              icon: XCircle,
+              title: "🚫 内容页用 CSR",
+              wrong:
+                '博客、电商产品页使用 CSR（"use client" + useEffect 请求）',
+              why: "搜索引擎爬虫拿到空 HTML，Lighthouse SEO 0分。首屏白屏 3 秒 = 53% 用户流失。",
+              right:
+                "博客用 SSG（generateStaticParams），产品页用 SSR（cache: 'no-store'）或 ISR。",
+              color: "#EF4444",
             },
             {
-              num: "02",
-              color: "bg-pink-100",
-              shadow: "8px 8px 0px 0px var(--secondary)",
-              title: "RSC 是新范式",
-              desc: "React Server Components 进一步模糊了 SSR 和 SSG 的边界。组件级别的渲染策略配置，让你在组件粒度上做出选择。",
+              icon: XCircle,
+              title: "🚫 静态页用 SSR",
+              wrong: '"关于我们"、"服务条款"等几乎不变的页面使用 SSR',
+              why: "每个请求都要服务端计算，浪费资源。10000 QPS 的 SSR 成本是 SSG 的 100 倍以上。",
+              right: "纯静态页面使用 SSG，Next.js 中默认行为就是 SSG。",
+              color: "#F97316",
             },
             {
-              num: "03",
-              color: "bg-yellow-100",
-              shadow: "8px 8px 0px 0px var(--tertiary)",
-              title: "测量驱动决策",
-              desc: "不要凭直觉选择。使用 Lighthouse、Core Web Vitals 真实数据来验证你的渲染策略是否达到了预期效果。",
+              icon: XCircle,
+              title: "🚫 ISR 时间设太短",
+              wrong: "新闻网站设置 revalidate: 1（1秒）",
+              why: "revalidate 过短 ≈ SSR，失去了 ISR 的缓存优势。且分布式场景下可能导致频繁重建。",
+              right:
+                "根据内容更新频率设置：新闻用 60~300s，产品列表用 600~3600s。",
+              color: "#F59E0B",
             },
             {
-              num: "04",
-              color: "bg-emerald-100",
-              shadow: "8px 8px 0px 0px var(--quaternary)",
-              title: "流式渲染崛起",
-              desc: "Next.js App Router 的 Streaming SSR 和 Suspense 边界，让 SSR 也能实现渐进式内容呈现，大幅改善 TTFB 和感知性能。",
+              icon: XCircle,
+              title: "🚫 SSR 中串行请求",
+              wrong: "在 Server Component 中顺序 await 多个 fetch",
+              why: "3 个 300ms 的请求串行 = 900ms TTFB。用户在白屏中等待。",
+              right:
+                "使用 Promise.all() 并行，或用 Suspense 流式渲染。总耗时降至 300ms。",
+              color: "#8B5CF6",
             },
-          ].map((item, i) => (
+          ].map((ap, i) => (
             <div
               key={i}
-              className={`${item.color} topic-card animate-slide p-6`}
-              style={{
-                boxShadow: item.shadow,
-                animationDelay: `${i * 100}ms`,
-              }}
+              className="topic-card p-5 rounded-2xl border-l-4"
+              style={{ borderLeftColor: ap.color }}
             >
-              <span
-                className="text-5xl font-extrabold text-[var(--foreground)] opacity-10"
-                style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-              >
-                {item.num}
-              </span>
-              <h3
-                className="text-xl font-extrabold text-[var(--foreground)] -mt-5 mb-3"
-                style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-              >
-                {item.title}
-              </h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                {item.desc}
-              </p>
+              <h4 className="font-['Outfit',sans-serif] font-bold text-[var(--foreground)] mb-3">
+                {ap.title}
+              </h4>
+              <div className="space-y-3 text-sm font-['Plus_Jakarta_Sans']">
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                  <span className="text-xs font-bold text-red-600 uppercase tracking-wider">
+                    ❌ 错误做法
+                  </span>
+                  <p className="text-[var(--foreground)]/70 mt-1">{ap.wrong}</p>
+                </div>
+                <p className="text-xs text-[var(--foreground)]/50">
+                  <strong>为什么错：</strong>
+                  {ap.why}
+                </p>
+                <div className="p-3 rounded-xl bg-green-50 border border-green-200">
+                  <span className="text-xs font-bold text-green-700 uppercase tracking-wider">
+                    ✅ 正确做法
+                  </span>
+                  <p className="text-[var(--foreground)]/70 mt-1">{ap.right}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ════════════ 速查公式 ════════════ */}
-      <section className="container pb-20 md:pb-28">
-        <div
-          className="topic-card p-6 md:p-10 text-center animate-pop"
-          style={{ boxShadow: "8px 8px 0px 0px var(--foreground)" }}
-        >
-          <GeoBadge color="bg-[var(--tertiary)] bg-yellow-100" size="lg">
-            <Gauge strokeWidth={2.5} className="w-7 h-7 text-[var(--tertiary)]" />
-          </GeoBadge>
-          <h2
-            className="text-2xl md:text-3xl font-extrabold text-[var(--foreground)] mt-4 mb-6"
-            style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
-          >
-            一句话速记
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
-            {[
-              { title: "CSR", motto: "浏览器干活", color: "bg-purple-100", icon: <Monitor strokeWidth={2.5} className="w-5 h-5" /> },
-              { title: "SSR", motto: "服务器实时算", color: "bg-pink-100", icon: <Server strokeWidth={2.5} className="w-5 h-5" /> },
-              { title: "SSG", motto: "提前做好放 CDN", color: "bg-yellow-100", icon: <FileText strokeWidth={2.5} className="w-5 h-5" /> },
-              { title: "ISR", motto: "先用缓存 后台更新", color: "bg-emerald-100", icon: <RefreshCw strokeWidth={2.5} className="w-5 h-5" /> },
-            ].map((item) => (
+      {/* ═══════════════════ Cheat Sheet ═══════════════════ */}
+      <section className="container py-16 md:py-24">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-[var(--secondary)] border-2 border-[var(--foreground)] flex items-center justify-center shadow-[3px_3px_0px_0px_var(--foreground)]">
+            <FileCode className="w-4 h-4 text-white" strokeWidth={2.5} />
+          </div>
+          <span className="text-xs font-bold text-[var(--secondary)] uppercase tracking-widest font-['Plus_Jakarta_Sans']">
+            速查清单
+          </span>
+        </div>
+        <h2 className="font-['Outfit',sans-serif] text-3xl md:text-4xl font-extrabold text-[var(--foreground)] mb-8">
+          渲染策略 Cheat Sheet
+        </h2>
+
+        {/* Bento Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            {
+              title: "cache: 'no-store'",
+              subtitle: "强制 SSR",
+              desc: "每次请求获取最新数据，不做任何缓存",
+              code: 'fetch(url, { cache: "no-store" })',
+              color: "var(--secondary)",
+            },
+            {
+              title: "cache: 'force-cache'",
+              subtitle: "强制 SSG",
+              desc: "构建时缓存结果，后续复用",
+              code: 'fetch(url, { cache: "force-cache" })',
+              color: "var(--quaternary)",
+            },
+            {
+              title: "next: { revalidate }",
+              subtitle: "ISR",
+              desc: "指定秒数后过期，下次访问触发后台重新生成",
+              code: "fetch(url, { next: { revalidate: 60 } })",
+              color: "var(--tertiary)",
+            },
+            {
+              title: '"use client"',
+              subtitle: "标记 CSR",
+              desc: "组件在浏览器端渲染和执行",
+              code: '// 文件顶部添加\n"use client";',
+              color: "var(--accent)",
+            },
+            {
+              title: "generateStaticParams",
+              subtitle: "SSG 路由预生成",
+              desc: "构建时生成所有动态路由的静态页面",
+              code: "export async function generateStaticParams() {...}",
+              color: "var(--quaternary)",
+            },
+            {
+              title: "<Suspense>",
+              subtitle: "Streaming SSR",
+              desc: "将慢速部分异步流式渲染，不阻塞快速部分",
+              code: "<Suspense fallback={<Skeleton />}>\n  <SlowComponent />\n</Suspense>",
+              color: "var(--secondary)",
+            },
+          ].map((card, i) => (
+            <div
+              key={i}
+              className={`topic-card rounded-2xl overflow-hidden ${
+                i === 0 ? "col-span-2 lg:col-span-1" : ""
+              }`}
+            >
               <div
-                key={item.title}
-                className={`${item.color} rounded-xl border-2 border-[var(--foreground)] p-4`}
-                style={{ boxShadow: "4px 4px 0px 0px var(--foreground)" }}
+                className="px-4 py-3 border-b-2 border-[var(--foreground)]"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${card.color} 15%, white)`,
+                }}
               >
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  {item.icon}
+                <div className="flex items-center justify-between">
+                  <span className="font-['JetBrains_Mono',monospace] text-sm font-bold text-[var(--foreground)]">
+                    {card.title}
+                  </span>
                   <span
-                    className="text-xl font-extrabold text-[var(--foreground)]"
-                    style={{ fontFamily: "var(--font-heading, Outfit, sans-serif)" }}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white uppercase tracking-wider"
+                    style={{ backgroundColor: card.color }}
                   >
-                    {item.title}
+                    {card.subtitle}
                   </span>
                 </div>
-                <p className="text-sm text-gray-700 font-medium">
-                  {item.motto}
+              </div>
+              <div className="p-4 space-y-3">
+                <p className="text-xs text-[var(--foreground)]/60 font-['Plus_Jakarta_Sans'] leading-relaxed">
+                  {card.desc}
+                </p>
+                <pre className="p-3 bg-[#1E293B] rounded-xl text-xs text-[#E2E8F0] font-['JetBrains_Mono',monospace] overflow-x-auto border border-[var(--foreground)]/20">
+                  <code
+                    dangerouslySetInnerHTML={{
+                      __html: highlightCode(card.code, "typescript"),
+                    }}
+                  />
+                </pre>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 终极总结 */}
+        <div className="mt-10 p-6 md:p-8 rounded-3xl bg-[var(--foreground)] text-white border-2 border-[var(--foreground)] shadow-[8px_8px_0px_0px_var(--accent)]">
+          <h3 className="font-['Outfit',sans-serif] font-bold text-2xl mb-4 flex items-center gap-3">
+            <Sparkles
+              className="w-6 h-6 text-[var(--tertiary)]"
+              strokeWidth={2.5}
+            />
+            一句话记住四种策略
+          </h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                name: "CSR",
+                emoji: "🧑‍🍳",
+                summary: "浏览器自己做菜——慢但灵活",
+                color: "#8B5CF6",
+              },
+              {
+                name: "SSR",
+                emoji: "👨‍🍳",
+                summary: "服务器现做——快但费厨师",
+                color: "#F472B6",
+              },
+              {
+                name: "SSG",
+                emoji: "🍱",
+                summary: "提前做好放冰箱——极速但可能不新鲜",
+                color: "#34D399",
+              },
+              {
+                name: "ISR",
+                emoji: "🔄🍱",
+                summary: "自动补货的冰箱——极速且保持新鲜",
+                color: "#FBBF24",
+              },
+            ].map((s, i) => (
+              <div
+                key={i}
+                className="p-4 rounded-xl border-2 border-white/20 bg-white/5 backdrop-blur-sm"
+              >
+                <span className="text-2xl">{s.emoji}</span>
+                <h4
+                  className="font-['Outfit',sans-serif] font-bold text-lg mt-2"
+                  style={{ color: s.color }}
+                >
+                  {s.name}
+                </h4>
+                <p className="text-sm text-white/70 font-['Plus_Jakarta_Sans'] mt-1 leading-relaxed">
+                  {s.summary}
                 </p>
               </div>
             ))}
           </div>
+          <p className="mt-6 text-sm text-white/50 font-['Plus_Jakarta_Sans']">
+            🎯 现代 Web
+            开发的黄金法则：没有银弹。同一应用中混合使用多种策略，按页面粒度选择最优方案。
+          </p>
         </div>
       </section>
     </div>

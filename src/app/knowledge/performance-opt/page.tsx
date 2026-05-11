@@ -1,5 +1,6 @@
 // app/knowledge/web-vitals/page.tsx
 import type { Metadata } from "next";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Gauge,
   Timer,
@@ -791,7 +792,7 @@ export default function WebVitalsPage() {
             </div>
             {/* 代码内容 */}
             <pre className="overflow-x-auto bg-[#1E293B] p-6 text-sm leading-relaxed text-[#E2E8F0]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              <code>{`import { onLCP, onINP, onCLS, onFCP, onTTFB } from "web-vitals";
+              <code className="language-typescript" dangerouslySetInnerHTML={{ __html: highlightCode(`import { onLCP, onINP, onCLS, onFCP, onTTFB } from "web-vitals";
 
 type MetricPayload = {
   name: string;
@@ -825,7 +826,7 @@ export function initWebVitals() {
   onCLS(sendToAnalytics);   // 累计布局偏移
   onFCP(sendToAnalytics);   // 首次内容绘制
   onTTFB(sendToAnalytics);  // 首字节时间
-}`}</code>
+}`, "typescript") }} />
             </pre>
           </div>
         </section>

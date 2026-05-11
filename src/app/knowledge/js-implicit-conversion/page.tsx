@@ -18,6 +18,7 @@ import {
   Sparkles,
   BookOpen,
 } from 'lucide-react'
+import { highlightCode } from '@/lib/prism-highlight'
 
 /* ═══════════════════════════════════════════════════
    Helper Components
@@ -25,16 +26,20 @@ import {
 
 function CodeBlock({
   children,
+  language = 'javascript',
   className = '',
 }: {
   children: React.ReactNode
+  language?: string
   className?: string
 }) {
+  const codeStr = typeof children === 'string' ? children : String(children)
+  const html = highlightCode(codeStr, language)
   return (
     <pre
-      className={`font-['Courier_New',monospace] text-[13px] md:text-sm leading-[1.8] bg-[#1E293B] text-emerald-300 p-4 md:p-5 rounded-[16px] border-2 border-[#1E293B] overflow-x-auto whitespace-pre ${className}`}
+      className={`font-['Courier_New',monospace] text-[13px] md:text-sm leading-[1.8] bg-[#1E293B] p-4 md:p-5 rounded-[16px] border-2 border-[#1E293B] overflow-x-auto whitespace-pre language-${language} ${className}`}
     >
-      <code>{children}</code>
+      <code className={`language-${language}`} dangerouslySetInnerHTML={{ __html: html }} />
     </pre>
   )
 }

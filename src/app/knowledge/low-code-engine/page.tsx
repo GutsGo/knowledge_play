@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   FileJson2,
   GripVertical,
@@ -1177,7 +1178,7 @@ export default function LowCodeFormPage() {
               </h4>
             </div>
             <pre className="text-xs font-mono text-white/70 leading-relaxed overflow-x-auto">
-              <code>{`// ❌ 传统方式：手写每一个表单项
+              <code className="language-jsx" dangerouslySetInnerHTML={{ __html: highlightCode(`// ❌ 传统方式：手写每一个表单项
 function UserForm() {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -1202,7 +1203,7 @@ function UserForm() {
       {errors.age && <span>{errors.age}</span>}
     </form>
   );
-}`}</code>
+}`, "jsx") }} />
             </pre>
           </div>
 
@@ -1222,7 +1223,7 @@ function UserForm() {
               </h4>
             </div>
             <pre className="text-xs font-mono text-[var(--foreground)]/80 leading-relaxed overflow-x-auto">
-              <code>{`// ✅ Schema 驱动：描述而非编写
+              <code className="language-jsx" dangerouslySetInnerHTML={{ __html: highlightCode(`// ✅ Schema 驱动：描述而非编写
 const schema = {
   fields: [
     {
@@ -1246,7 +1247,7 @@ const schema = {
 };
 
 // 一行渲染，自动校验
-<SchemaForm schema={schema} />`}</code>
+<SchemaForm schema={schema} />`, "jsx") }} />
             </pre>
           </div>
         </div>
@@ -1698,7 +1699,7 @@ const schema = {
               </span>
             </div>
             <pre className="p-5 text-sm font-mono text-white/90 overflow-x-auto leading-relaxed">
-              <code>{`{
+              <code className="language-json" dangerouslySetInnerHTML={{ __html: highlightCode(`{
   "formId": "user-registration",
   "version": "1.0.0",
   "fields": [
@@ -1728,7 +1729,7 @@ const schema = {
   ],
   "layout": { "columns": 2, "gap": 16 },
   "submit": { "api": "/api/form/submit" }
-}`}</code>
+}`, "json") }} />
             </pre>
           </div>
 
@@ -1943,7 +1944,7 @@ const schema = {
             </div>
             {showCode ? (
               <div className="rounded-[var(--radius-md)] bg-[var(--foreground)] p-4 text-xs font-mono text-white/80 overflow-auto max-h-[380px]">
-                <pre>{JSON.stringify(generatedSchema, null, 2)}</pre>
+                <pre className="language-json"><code className="language-json" dangerouslySetInnerHTML={{ __html: highlightCode(JSON.stringify(generatedSchema, null, 2), "json") }} /></pre>
               </div>
             ) : (
               <FormPreview canvasItems={canvasItems} />

@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   ArrowRight,
   ArrowDown,
@@ -490,10 +491,10 @@ export default function CSSFlexPage() {
               className="text-sm p-4 rounded-xl overflow-x-auto"
               style={{ background: "#1a1a2e", color: "#e2e8f0", fontFamily: '"Fira Code", monospace' }}
             >
-              <code>{`.container {
+              <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`.container {
   display: flex;
   flex-direction: ${directionOptions[activeDirection].value};
-}`}</code>
+}`, "css") }} />
             </pre>
           </div>
         </div>
@@ -587,10 +588,10 @@ export default function CSSFlexPage() {
               className="text-sm p-4 rounded-xl overflow-x-auto"
               style={{ background: "#1a1a2e", color: "#e2e8f0", fontFamily: '"Fira Code", monospace' }}
             >
-              <code>{`.container {
+              <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`.container {
   display: flex;
   justify-content: ${justifyOptions[activeJustify].value};
-}`}</code>
+}`, "css") }} />
             </pre>
           </div>
         </div>
@@ -691,11 +692,11 @@ export default function CSSFlexPage() {
               className="text-sm p-4 rounded-xl overflow-x-auto"
               style={{ background: "#1a1a2e", color: "#e2e8f0", fontFamily: '"Fira Code", monospace' }}
             >
-              <code>{`.container {
+              <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`.container {
   display: flex;
   align-items: ${alignOptions[activeAlign].value};
   min-height: 200px; /* 需要足够高度才能看到效果 */
-}`}</code>
+}`, "css") }} />
             </pre>
           </div>
         </div>
@@ -1164,7 +1165,7 @@ export default function CSSFlexPage() {
                 className="text-xs p-3 rounded-lg overflow-x-auto"
                 style={{ background: "#1a1a2e", color: "#e2e8f0", fontFamily: '"Fira Code", monospace' }}
               >
-                <code>{p.code}</code>
+                <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(p.code, "css") }} />
               </pre>
             </div>
           ))}
@@ -1205,12 +1206,12 @@ export default function CSSFlexPage() {
                 className="text-xs p-4 rounded-xl overflow-x-auto"
                 style={{ background: "#1a1a2e", color: "#e2e8f0", fontFamily: '"Fira Code", monospace' }}
               >
-                <code>{`/* 旧方案：需要 :not(:last-child) */
+                <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`/* 旧方案：需要 :not(:last-child) */
 .item:not(:last-child) {
   margin-right: 16px;
 }
 
-/* 问题：最后一个元素也有 margin */`}</code>
+/* 问题：最后一个元素也有 margin */`, "css") }} />
               </pre>
             </div>
 
@@ -1224,12 +1225,12 @@ export default function CSSFlexPage() {
                 className="text-xs p-4 rounded-xl overflow-x-auto"
                 style={{ background: "#1a1a2e", color: "var(--quaternary)", fontFamily: '"Fira Code", monospace' }}
               >
-                <code>{`/* 现代方案：一行搞定 */
+                <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`/* 现代方案：一行搞定 */
 .container {
   display: flex;
   gap: 16px;
   /* 或 gap: row-gap column-gap */
-}`}</code>
+}`, "css") }} />
               </pre>
             </div>
           </div>

@@ -1,6 +1,7 @@
 // app/knowledge/javascript-event-loop/page.tsx
 
 import Link from "next/link";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   ArrowLeft,
   RotateCcw,
@@ -868,7 +869,7 @@ console.log('6');`,
                         className="font-mono text-sm leading-relaxed overflow-x-auto"
                         style={{ color: "#e2e8f0" }}
                       >
-                        <code>{ex.code}</code>
+                        <code className="language-javascript" dangerouslySetInnerHTML={{ __html: highlightCode(ex.code, "javascript") }} />
                       </pre>
                     </div>
 

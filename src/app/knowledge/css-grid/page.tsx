@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Grid3X3,
   Columns3,
@@ -678,7 +679,7 @@ export default function CSSGridPage() {
                 color: "#e2e8f0",
               }}
             >
-              <code>{`.container {
+              <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`.container {
   display: grid;
   grid-template-columns: 200px 1fr 200px;
   grid-template-rows: auto 1fr auto;
@@ -694,7 +695,7 @@ export default function CSSGridPage() {
 .sidebar { grid-area: sidebar; }
 .main    { grid-area: main;    }
 .aside   { grid-area: aside;   }
-.footer  { grid-area: footer;  }`}</code>
+.footer  { grid-area: footer;  }`, "css") }} />
             </pre>
           </div>
 
@@ -1228,11 +1229,11 @@ export default function CSSGridPage() {
                   color: "#e2e8f0",
                 }}
               >
-                <code>{`.hero {
+                <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`.hero {
   grid-column: 1 / 3;
   /* 从列线 1 到列线 3 */
   /* 即跨越前两列 */
-}`}</code>
+}`, "css") }} />
               </pre>
             </div>
             <div
@@ -1254,11 +1255,11 @@ export default function CSSGridPage() {
                   color: "#e2e8f0",
                 }}
               >
-                <code>{`.sidebar {
+                <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`.sidebar {
   grid-row: 1 / -1;
   /* 从第 1 行到最后一行 */
   /* 负号 = 从末尾计数 */
-}`}</code>
+}`, "css") }} />
               </pre>
             </div>
           </div>
@@ -1813,11 +1814,11 @@ export default function CSSGridPage() {
                   fontFamily: '"Fira Code", monospace',
                 }}
               >
-                <code>{`.grid {
+                <code className="language-css" dangerouslySetInnerHTML={{ __html: highlightCode(`.grid {
   grid-template-columns: repeat(
     auto-fit, minmax(min(250px, 100%), 1fr)
   );
-}`}</code>
+}`, "css") }} />
               </pre>
               <p className="text-xs mt-2 opacity-60" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                 无需任何 media query，自动从 1 列到 N 列完美自适应！

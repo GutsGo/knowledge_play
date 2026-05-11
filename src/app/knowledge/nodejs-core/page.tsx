@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Zap,
   Layers,
@@ -40,11 +41,14 @@ function CodeBlock({
   code,
   filename,
   accent = "var(--accent)",
+  language = "javascript",
 }: {
   code: string;
   filename?: string;
   accent?: string;
+  language?: string;
 }) {
+  const html = highlightCode(code, language);
   return (
     <div
       className="relative overflow-hidden"
@@ -72,10 +76,8 @@ function CodeBlock({
           </span>
         </div>
       )}
-      <pre className="overflow-x-auto p-4 text-sm leading-relaxed">
-        <code className="font-mono" style={{ color: "#e2e8f0" }}>
-          {code}
-        </code>
+      <pre className={`overflow-x-auto p-4 text-sm leading-relaxed language-${language}`}>
+        <code className={`font-mono language-${language}`} dangerouslySetInnerHTML={{ __html: html }} />
       </pre>
     </div>
   );

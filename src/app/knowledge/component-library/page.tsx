@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Layers,
   Palette,
@@ -902,7 +903,7 @@ export default function EnterpriseComponentLibraryPage() {
                   className="p-4 text-xs text-green-300 overflow-x-auto"
                   style={{ fontFamily: "monospace" }}
                 >
-                  <code>{`<Button\n  variant="${buttonVariants[activeVariant].label.toLowerCase()}"\n  size="${buttonSizes[activeSize]}"\n${isDisabled ? "  disabled\n" : ""}${showIcon ? "  icon={<Zap />}\n" : ""}/>`}</code>
+                  <code className="language-jsx" dangerouslySetInnerHTML={{ __html: highlightCode(`<Button\n  variant="${buttonVariants[activeVariant].label.toLowerCase()}"\n  size="${buttonSizes[activeSize]}"\n${isDisabled ? "  disabled\n" : ""}${showIcon ? "  icon={<Zap />}\n" : ""}/>`, "jsx") }} />
                 </pre>
               </div>
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { highlightCode } from "@/lib/prism-highlight";
 import {
   Layers,
   Boxes,
@@ -878,7 +879,7 @@ class ApiOrderRepository implements OrderRepository {
                       maxHeight: "400px",
                     }}
                   >
-                    <code>{pattern.code}</code>
+                    <code className="language-typescript" dangerouslySetInnerHTML={{ __html: highlightCode(pattern.code, "typescript") }} />
                   </pre>
                 </div>
               </div>
@@ -1273,7 +1274,7 @@ class ApiOrderRepository implements OrderRepository {
                   maxHeight: "380px",
                 }}
               >
-                <code>{`// application/use-cases/
+                <code className="language-typescript" dangerouslySetInnerHTML={{ __html: highlightCode(`// application/use-cases/
 export class AddToCartUseCase {
   constructor(
     private cartRepo: CartRepository,
@@ -1309,7 +1310,7 @@ export class AddToCartUseCase {
       totalPrice: cart.total
     };
   }
-}`}</code>
+}`, "typescript") }} />
               </pre>
             </div>
 
@@ -1342,7 +1343,7 @@ export class AddToCartUseCase {
                   maxHeight: "380px",
                 }}
               >
-                <code>{`// presentation/hooks/
+                <code className="language-typescript" dangerouslySetInnerHTML={{ __html: highlightCode(`// presentation/hooks/
 import { useState } from 'react';
 import { AddToCartUseCase } from '@/application';
 import { useCartRepository } from '../providers';
@@ -1385,7 +1386,7 @@ export function useAddToCart() {
   };
 
   return { addToCart, loading, error };
-}`}</code>
+}`, "typescript") }} />
               </pre>
             </div>
 
@@ -1418,7 +1419,7 @@ export function useAddToCart() {
                   maxHeight: "380px",
                 }}
               >
-                <code>{`// presentation/components/
+                <code className="language-tsx" dangerouslySetInnerHTML={{ __html: highlightCode(`// presentation/components/
 'use client';
 
 import { useAddToCart } from '../hooks';
@@ -1452,7 +1453,7 @@ export function ProductCard({ product }: Props) {
 }
 
 // 组件只关心 UI 和用户交互
-// 业务逻辑完全委托给 Use Case`}</code>
+// 业务逻辑完全委托给 Use Case`, "tsx") }} />
               </pre>
             </div>
           </div>
